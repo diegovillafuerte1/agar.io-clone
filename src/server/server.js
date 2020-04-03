@@ -490,7 +490,6 @@ function tickPlayer(currentPlayer) {
     }
 
     function deleteFood(f) {
-        food[f] = {};
         food.splice(f, 1);
     }
 
@@ -576,7 +575,6 @@ function tickPlayer(currentPlayer) {
         var masaGanada = 0;
         for(var m=0; m<massEaten.length; m++) {
             masaGanada += massFood[massEaten[m]].masa;
-            massFood[massEaten[m]] = {};
             massFood.splice(massEaten[m],1);
             for(var n=0; n<massEaten.length; n++) {
                 if(massEaten[m] < massEaten[n]) {
