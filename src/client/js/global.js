@@ -14,10 +14,11 @@ module.exports = {
     enemySpin: -Math.PI,
     mobile: false,
     foodSides: 10,
-    virusSides: 20,
+    virusSides: 84,
     virusFill: "#33ff33",
     virusStroke: "#19D119",
-    virusStrokeWidth: 20,
+    virusStrokeWidth: 10,
+    virusSpikesSize: 5,
 
     // Canvas
     screenWidth: window.innerWidth,

@@ -293,7 +293,10 @@ function setupSocket(socket) {
     });
 }
 
-function drawCircle(centerX, centerY, radius, sides) {
+function drawCircle(centerX, centerY, radius, sides, spikesSize) {
+    if (!spikesSize) {
+        spikesSize = 0.0;
+    }
     var theta = 0;
     var x = 0;
     var y = 0;
@@ -302,8 +305,8 @@ function drawCircle(centerX, centerY, radius, sides) {
 
     for (var i = 0; i < sides; i++) {
         theta = (i / sides) * 2 * Math.PI;
-        x = centerX + radius * Math.sin(theta);
-        y = centerY + radius * Math.cos(theta);
+        x = centerX + (radius - spikesSize/2 + spikesSize*(i % 2)) * Math.sin(theta);
+        y = centerY + (radius - spikesSize/2 + spikesSize*(i % 2)) * Math.cos(theta);
         graph.lineTo(x, y);
     }
 
@@ -327,7 +330,7 @@ function drawVirus(virus) {
     graph.lineWidth = global.virusStrokeWidth;
     drawCircle(virus.x - player.x + global.screenWidth / 2,
                virus.y - player.y + global.screenHeight / 2,
-               virus.radius, global.virusSides);
+               virus.radius, global.virusSides, global.virusSpikesSize);
 }
 
 function drawFireFood(mass) {
