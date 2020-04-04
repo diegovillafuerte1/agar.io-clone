@@ -8,6 +8,8 @@ class ChatClient {
         this.player = global.player;
         var self = this;
         this.commands = {};
+        this.history = [];
+        this.historyIndex = -1;
         var input = document.getElementById('chatInput');
         input.addEventListener('keypress', this.sendChat.bind(this));
         input.addEventListener('keyup', function(key) {
@@ -16,6 +18,26 @@ class ChatClient {
             if (key === global.KEY_ESC) {
                 input.value = '';
                 self.canvas.cv.focus();
+            }
+            else if (key === global.KEY_UP) {
+                if (self.history.length > 0) {
+                    if (self.historyIndex < self.history.length - 1) {
+                        self.historyIndex += 1;
+                    }
+                    $('#chatInput').val(self.history[self.historyIndex]);
+                }
+            }
+            else if (key === global.KEY_DOWN) {
+                if (self.history.length > 0) {
+                    if (self.historyIndex >= 0) {
+                        self.historyIndex -= 1;
+                        if (self.historyIndex < 0) {
+                            $('#chatInput').val("");
+                        } else {
+                            $('#chatInput').val(self.history[self.historyIndex]);
+                        }
+                    }
+                }
             }
         });
         global.chatClient = this;
@@ -114,6 +136,11 @@ class ChatClient {
         if (key === global.KEY_ENTER) {
             var text = input.value.replace(/(<([^>]+)>)/ig,'');
             if (text !== '') {
+                this.history.unshift(text);
+                while (this.history.length > 100) {
+                    this.history.pop();
+                }
+                this.historyIndex = -1;
 
                 // Chat command.
                 if (text.indexOf('-') === 0) {
