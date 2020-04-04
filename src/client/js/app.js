@@ -291,11 +291,6 @@ function setupSocket(socket) {
         global.kicked = true;
         socket.close();
     });
-
-    socket.on('virusSplit', function (virusCell) {
-        socket.emit('2', virusCell);
-        reenviar = false;
-    });
 }
 
 function drawCircle(centerX, centerY, radius, sides) {

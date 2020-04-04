@@ -98,27 +98,45 @@ function movePlayer(player) {
     var x =0,y =0;
     for(var i=0; i<player.cells.length; i++)
     {
-        var target = {
-            x: player.x - player.cells[i].x + player.target.x,
-            y: player.y - player.cells[i].y + player.target.y
-        };
-        var dist = Math.sqrt(Math.pow(target.y, 2) + Math.pow(target.x, 2));
-        var deg = Math.atan2(target.y, target.x);
-        var slowDown = 1;
-        if(player.cells[i].speed <= 6.25) {
-            slowDown = util.log(player.cells[i].mass, c.slowBase) - initMassLog + 1;
+        var cell = player.cells[i];
+
+        var deltaY, deltaX;
+
+        if (cell.speed > 6.25 && (cell.moveY || cell.moveX)) {
+            deltaY = cell.speed * cell.moveY;
+            deltaX = cell.speed * cell.moveX;
+            cell.speed -= c.explodeSlowdownStep;
+        } else {
+            if (cell.moveY || cell.moveX) {
+                delete cell.moveX;
+                delete cell.moveY;
+            }
+            var target = {
+                x: player.x - cell.x + player.target.x,
+                y: player.y - cell.y + player.target.y
+            };
+            var angle = Math.atan2(target.y, target.x);
+
+            var slowDown = 1;
+            if (cell.speed <= 6.25) {
+                slowDown = util.log(cell.mass, c.slowBase) - initMassLog + 1;
+            }
+
+            deltaY = cell.speed * Math.sin(angle) / slowDown;
+            deltaX = cell.speed * Math.cos(angle) / slowDown;
+
+            if (cell.speed > 6.25) {
+                cell.speed -= 0.5;
+            }
+
+            var fenceDist = 50 + cell.radius,
+                dist = Math.sqrt(target.y * target.y + target.x * target.x);
+            if (dist < fenceDist) {
+                deltaY *= dist / fenceDist;
+                deltaX *= dist / fenceDist;
+            }
         }
 
-        var deltaY = player.cells[i].speed * Math.sin(deg)/ slowDown;
-        var deltaX = player.cells[i].speed * Math.cos(deg)/ slowDown;
-
-        if(player.cells[i].speed > 6.25) {
-            player.cells[i].speed -= 0.5;
-        }
-        if (dist < (50 + player.cells[i].radius)) {
-            deltaY *= dist / (50 + player.cells[i].radius);
-            deltaX *= dist / (50 + player.cells[i].radius);
-        }
         if (!isNaN(deltaY)) {
             player.cells[i].y += deltaY;
         }
@@ -236,6 +254,123 @@ function balanceMass() {
     if (virusToAdd > 0) {
         addVirus(virusToAdd);
     }
+}
+
+function explodeCell(currentPlayer, cell, virus) {
+   function explode(cell) {
+        if (cell.mass >= c.defaultPlayerMass * 4) {
+            var remainingCellsCount = c.limitSplit - currentPlayer.cells.length;
+            if (remainingCellsCount <= 0) {
+                return; // Already divided into too manyparts: just eat the virus
+            }
+            var partsMass = c.defaultPlayerMass * 2,
+                partsCount = Math.min(Math.max(0, Math.floor(cell.mass / partsMass) - 2), remainingCellsCount),
+                splitAfterExplode = 0;
+            console.log("[DEBUG] explode(): (1) partsMass=[" + partsMass + "], cell.mass=[" + Math.floor(cell.mass) + "], remainingCellsCount=[" + remainingCellsCount + "], partsCount=[" + partsCount + "]");
+            if ((cell.mass - partsMass * partsCount) > 6 * partsMass) {
+                partsMass = c.defaultPlayerMass * 3;
+                partsCount = Math.min(Math.max(0, Math.floor(cell.mass / partsMass) - 2), remainingCellsCount);
+            }
+            console.log("[DEBUG] explode(): (2) partsMass=[" + partsMass + "], cell.mass=[" + Math.floor(cell.mass) + "], remainingCellsCount=[" + remainingCellsCount + "], partsCount=[" + partsCount + "]");
+            while (splitAfterExplode < 3 && ((cell.mass - partsMass * partsCount) / Math.pow(2, splitAfterExplode) > 8 * partsMass) && (partsCount > 8)) {
+                splitAfterExplode += 1;
+                partsCount -= Math.pow(2, splitAfterExplode - 1);
+                console.log("[DEBUG] explode(): (3) partsMass=[" + partsMass + "], cell.mass=[" + Math.floor(cell.mass) +
+                    "], remainingCellsCount=[" + remainingCellsCount + "], partsCount=[" + partsCount +
+                    "], ((cell.mass - partsMass * partsCount) / Math.pow(2, splitAfterExplode)=[" + ((cell.mass - partsMass * partsCount) / Math.pow(2, splitAfterExplode)) +
+                    "], (6 * partsMass)=[" + (6 * partsMass) + "]");
+            }
+
+            var partsRadius = util.massToRadius(partsMass);
+
+
+            var playerMove = {
+                    x: currentPlayer.x - cell.x + currentPlayer.target.x,
+                    y: currentPlayer.y - cell.y + currentPlayer.target.y
+                },
+                playerAngle = Math.atan2(playerMove.y, playerMove.x),
+                partAngle;
+
+            var idx;
+            for (idx = 0; idx < partsCount; idx++) {
+                partAngle = playerAngle + 2 * Math.PI * idx / partsCount;
+                cell.mass -= partsMass;
+                currentPlayer.cells.push({
+                    id: currentPlayer.id,
+                    num: currentPlayer.cells.length,
+                    mass: partsMass,
+                    x: virus.x,
+                    y: virus.y,
+                    w: 0,
+                    h: 0,
+                    radius: partsRadius,
+                    speed: 20,
+                    moveX: Math.cos(partAngle),
+                    moveY: Math.sin(partAngle)
+                });
+            }
+            cell.radius = util.massToRadius(cell.mass);
+            var splitCandidates = [ cell ];
+            console.log("[DEBUG] explode(): splitting cells splitAfterExplode=[" + splitAfterExplode + "], splitCandidates.length=[" + splitCandidates.length + "]");
+            while (--splitAfterExplode >= 0) {
+                console.log("[DEBUG] explode(): splitting cells splitAfterExplode=[" + splitAfterExplode + "], splitCandidates.length=[" + splitCandidates.length + "]");
+                var initialCandidatesCount = splitCandidates.length;
+                for (idx = 0; idx < initialCandidatesCount; idx++) {
+                    doSplitCell(currentPlayer, splitCandidates[idx], cell.speed);
+                    splitCandidates.push(currentPlayer.cells[currentPlayer.cells.length - 1]);
+                }
+            }
+        }
+        console.log("[DEBUG] explode(): returning");
+    }
+
+    console.log("[DEBUG] explodeCell(): currentPlayer.cells.length=[" + currentPlayer.cells.length + "]");
+
+    if (currentPlayer.cells.length >= c.limitSplit) {
+        return; // Already divided into too manyparts: just eat the virus
+    }
+    if (currentPlayer.massTotal < c.defaultPlayerMass * 4) {
+        return; // can't make two parts of twice the default mass: abort
+    }
+
+    explode(cell);
+    currentPlayer.lastSplit = new Date().getTime();
+    console.log("[DEBUG] explodeCell(): returning");
+}
+
+function doSplitCell(currentPlayer, cell, alternateSpeed) {
+    var speed = alternateSpeed ? alternateSpeed : 25;
+     if (cell.mass >= c.defaultPlayerMass * 2) {
+        cell.mass = cell.mass / 2;
+        cell.radius = util.massToRadius(cell.mass);
+        currentPlayer.cells.push({
+            id: currentPlayer.id,
+            num: currentPlayer.cells.length,
+            mass: cell.mass,
+            x: cell.x,
+            y: cell.y,
+            w: 0,
+            h: 0,
+            radius: cell.radius,
+            speed: speed
+        });
+    }
+}
+
+function splitCell(currentPlayer) {
+
+    if (currentPlayer.cells.length >= c.limitSplit) {
+        return; // Already divided into too manyparts: refuse to split
+    }
+    if (currentPlayer.massTotal < c.defaultPlayerMass * 2) {
+        return; // can't make two parts of default mass: abort
+    }
+
+    var initialCellsCount = currentPlayer.cells.length;
+    for (var idx = 0; idx < initialCellsCount; idx++) {
+        doSplitCell(currentPlayer, currentPlayer.cells[idx]);
+    }
+    currentPlayer.lastSplit = new Date().getTime();
 }
 
 io.on('connection', function (socket) {
@@ -457,41 +592,8 @@ io.on('connection', function (socket) {
         }
     });
 
-    socket.on('2', function(virusCell) {
-        function splitCell(cell) {
-            if(cell && cell.mass && cell.mass >= c.defaultPlayerMass*2) {
-                cell.mass = cell.mass/2;
-                cell.radius = util.massToRadius(cell.mass);
-                currentPlayer.cells.push({
-                    id: currentPlayer.id,
-                    num: currentPlayer.cells.length,
-                    mass: cell.mass,
-                    x: cell.x,
-                    y: cell.y,
-                    w: 0,
-                    h: 0,
-                    radius: cell.radius,
-                    speed: 25
-                });
-            }
-        }
-
-        if(currentPlayer.cells.length < c.limitSplit && currentPlayer.massTotal >= c.defaultPlayerMass*2) {
-            //Split single cell from virus
-            if (typeof(virusCell) === "number") {
-              splitCell(currentPlayer.cells[virusCell]);
-            }
-            else {
-              //Split all cells
-              if(currentPlayer.cells.length < c.limitSplit && currentPlayer.massTotal >= c.defaultPlayerMass*2) {
-                  var numMax = currentPlayer.cells.length;
-                  for(var d=0; d<numMax; d++) {
-                      splitCell(currentPlayer.cells[d]);
-                  }
-              }
-            }
-            currentPlayer.lastSplit = new Date().getTime();
-        }
+    socket.on('2', function() {
+        splitCell(currentPlayer);
     });
 });
 
@@ -580,7 +682,12 @@ function tickPlayer(currentPlayer) {
            .reduce( function(a, b, c) { return b ? a.concat(c) : a; }, []);
 
         if(virusCollision > 0 && currentCell.mass > virus[virusCollision].mass) {
-          sockets[currentPlayer.id].emit('virusSplit', z);
+            currentCell.mass += virus[virusCollision].mass / 4;
+            currentPlayer.massTotal += virus[virusCollision].mass / 4;
+            currentCell.radius = util.massToRadius(currentCell.mass);
+            playerCircle.r = currentCell.radius;
+
+          explodeCell(currentPlayer, currentPlayer.cells[z], virus[virusCollision]);
           virus.splice(virusCollision, 1);
         }
 
