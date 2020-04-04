@@ -147,6 +147,9 @@ function movePlayer(player) {
                         player.cells[i].mass += player.cells[j].mass;
                         player.cells[i].radius = util.massToRadius(player.cells[i].mass);
                         player.cells.splice(j, 1);
+                        for (var idx = j; idx < player.cells.length; idx++) {
+                            player.cells[idx].num = idx;
+                        }
                     }
                 }
             }
@@ -246,10 +249,15 @@ io.on('connection', function (socket) {
     var massTotal = 0;
     if(type === 'player') {
         cells = [{
+            id: socket.id,
+            num: 0,
             mass: c.defaultPlayerMass,
             x: position.x,
             y: position.y,
-            radius: radius
+            w: 0,
+            h: 0,
+            radius: radius,
+            speed: 6.25
         }];
         massTotal = c.defaultPlayerMass;
     }
@@ -258,8 +266,6 @@ io.on('connection', function (socket) {
         id: socket.id,
         x: position.x,
         y: position.y,
-        w: c.defaultPlayerMass,
-        h: c.defaultPlayerMass,
         cells: cells,
         massTotal: massTotal,
         hue: Math.round(Math.random() * 360),
@@ -293,10 +299,15 @@ io.on('connection', function (socket) {
             player.target.y = 0;
             if(type === 'player') {
                 player.cells = [{
+                    id: player.id,
+                    num: 0,
                     mass: c.defaultPlayerMass,
                     x: position.x,
                     y: position.y,
-                    radius: radius
+                    w: 0,
+                    h: 0,
+                    radius: radius,
+                    speed: 6.25
                 }];
                 player.massTotal = c.defaultPlayerMass;
             }
@@ -443,15 +454,20 @@ io.on('connection', function (socket) {
             }
         }
     });
+
     socket.on('2', function(virusCell) {
         function splitCell(cell) {
             if(cell && cell.mass && cell.mass >= c.defaultPlayerMass*2) {
                 cell.mass = cell.mass/2;
                 cell.radius = util.massToRadius(cell.mass);
                 currentPlayer.cells.push({
+                    id: currentPlayer.id,
+                    num: currentPlayer.cells.length,
                     mass: cell.mass,
                     x: cell.x,
                     y: cell.y,
+                    w: 0,
+                    h: 0,
                     radius: cell.radius,
                     speed: 25
                 });
@@ -503,25 +519,16 @@ function tickPlayer(currentPlayer) {
         return false;
     }
 
-    function check(user) {
-        for(var i=0; i<user.cells.length; i++) {
-            if(user.cells[i].mass > 10 && user.id !== currentPlayer.id) {
-                var response = new SAT.Response();
-                var collided = SAT.testCircleCircle(playerCircle,
-                    new C(new V(user.cells[i].x, user.cells[i].y), user.cells[i].radius),
-                    response);
-                if (collided) {
-                    response.aUser = currentCell;
-                    response.bUser = {
-                        id: user.id,
-                        name: user.name,
-                        x: user.cells[i].x,
-                        y: user.cells[i].y,
-                        num: i,
-                        mass: user.cells[i].mass
-                    };
-                    playerCollisions.push(response);
-                }
+    function check(cell) {
+        if (cell.mass > 10 && cell.id !== currentPlayer.id) {
+            var response = new SAT.Response();
+            var collided = SAT.testCircleCircle(playerCircle,
+                new C(new V(cell.x, cell.y), cell.radius),
+                response);
+            if (collided) {
+                response.aUser = currentCell;
+                response.bUser = cell;
+                playerCollisions.push(response);
             }
         }
         return true;
@@ -538,6 +545,9 @@ function tickPlayer(currentPlayer) {
                 if(users[numUser].cells.length > 1) {
                     users[numUser].massTotal -= collision.bUser.mass;
                     users[numUser].cells.splice(collision.bUser.num, 1);
+                    for (var idx = collision.bUser.num; idx < users[numUser].cells.length; idx++) {
+                        users[numUser].cells[idx].num = idx;
+                    }
                 } else {
                     users.splice(numUser, 1);
                     io.emit('playerDied', { name: collision.bUser.name });
@@ -592,10 +602,18 @@ function tickPlayer(currentPlayer) {
         playerCircle.r = currentCell.radius;
 
         tree.clear();
-        users.forEach(tree.put);
+        for (var idx = 0; idx < users.length; idx++) {
+            users[idx].cells.forEach(tree.put);
+        }
         var playerCollisions = [];
 
-        var otherUsers =  tree.get(currentPlayer, check);
+        var searchArea = {
+            x: currentCell.x - currentCell.radius,
+            y: currentCell.y - currentCell.radius,
+            w: currentCell.radius * 2,
+            h: currentCell.radius * 2
+        };
+        var otherCells = tree.get(searchArea, check);
 
         playerCollisions.forEach(collisionCheck);
     }
