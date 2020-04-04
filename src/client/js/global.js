@@ -15,6 +15,9 @@ module.exports = {
     mobile: false,
     foodSides: 10,
     virusSides: 20,
+    virusFill: "#33ff33",
+    virusStroke: "#19D119",
+    virusStrokeWidth: 20,
 
     // Canvas
     screenWidth: window.innerWidth,

@@ -80,10 +80,7 @@ function addVirus(toAdd) {
             x: position.x,
             y: position.y,
             radius: radius,
-            mass: mass,
-            fill: c.virus.fill,
-            stroke: c.virus.stroke,
-            strokeWidth: c.virus.strokeWidth
+            mass: mass
         });
     }
 }
