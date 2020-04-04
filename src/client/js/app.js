@@ -21,6 +21,23 @@ function startGame(type) {
     global.playerName = playerNameInput.value.replace(/(<([^>]+)>)/ig, '').substring(0,25);
     global.playerType = type;
 
+    global.borderDraw = $('#visBord').is(':checked');
+    global.toggleMassState = $('#showMass').is(':checked');
+    global.continuity = $('#continuity').is(':checked');
+    global.foodSides = $('#roundFood').is(':checked') ? 10 : 5;
+
+    var LIGHT = '#f2fbff',
+        DARK = '#181818';
+    var LINELIGHT = '#000000',
+        LINEDARK = '#ffffff';
+    if ($('#darkMode').is(':checked')) {
+        global.backgroundColor = DARK;
+        global.lineColor = LINEDARK;
+    } else {
+        global.backgroundColor = LIGHT;
+        global.lineColor = LINELIGHT;
+    }
+
     global.screenWidth = window.innerWidth;
     global.screenHeight = window.innerHeight;
 
@@ -46,18 +63,9 @@ function validNick() {
     return regex.exec(playerNameInput.value) !== null;
 }
 
-window.onload = function() {
+$(function() {
 
-    var btn = document.getElementById('startButton'),
-        btnS = document.getElementById('spectateButton'),
-        nickErrorText = document.querySelector('#startMenu .input-error');
-
-    btnS.onclick = function () {
-        startGame('spectate');
-    };
-
-    btn.onclick = function () {
-
+    $('#startButton').click(function () {
         // Checks if the nick is valid.
         if (validNick()) {
             nickErrorText.style.opacity = 0;
@@ -65,7 +73,13 @@ window.onload = function() {
         } else {
             nickErrorText.style.opacity = 1;
         }
-    };
+    });
+
+    $('#spectateButton').click(function () {
+        startGame('spectate');
+    });
+
+    var nickErrorText = document.querySelector('#startMenu .input-error');
 
     var settingsMenu = document.getElementById('settingsButton');
     var settings = document.getElementById('settings');
@@ -91,7 +105,7 @@ window.onload = function() {
             }
         }
     });
-};
+});
 
 // TODO: Break out into GameControls.
 
@@ -127,18 +141,6 @@ global.target = target;
 
 window.canvas = new Canvas();
 window.chat = new ChatClient();
-
-var visibleBorderSetting = document.getElementById('visBord');
-visibleBorderSetting.onchange = settings.toggleBorder;
-
-var showMassSetting = document.getElementById('showMass');
-showMassSetting.onchange = settings.toggleMass;
-
-var continuitySetting = document.getElementById('continuity');
-continuitySetting.onchange = settings.toggleContinuity;
-
-var roundFoodSetting = document.getElementById('roundFood');
-roundFoodSetting.onchange = settings.toggleRoundFood;
 
 var c = window.canvas.cv;
 var graph = c.getContext('2d');
