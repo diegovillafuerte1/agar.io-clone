@@ -460,7 +460,7 @@ io.on('connection', function (socket) {
 
         if(currentPlayer.cells.length < c.limitSplit && currentPlayer.massTotal >= c.defaultPlayerMass*2) {
             //Split single cell from virus
-            if(virusCell) {
+            if (typeof(virusCell) === "number") {
               splitCell(currentPlayer.cells[virusCell]);
             }
             else {
