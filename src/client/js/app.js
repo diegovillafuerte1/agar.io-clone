@@ -447,17 +447,24 @@ function valueInRange(min, max, value) {
 }
 
 function drawgrid() {
+    function fraction(n) {
+        return n - Math.floor(n);
+    }
      graph.lineWidth = 1;
      graph.strokeStyle = global.lineColor;
      graph.globalAlpha = 0.15;
      graph.beginPath();
 
-    for (var x = global.xoffset - player.x; x < global.screenWidth; x += global.screenHeight / 18) {
+    var step = global.screenHeight / 18;
+
+    var x = step * (1 - fraction((player.x - global.screenWidth / 2) / step));
+    for (; x < global.screenWidth; x += step) {
         graph.moveTo(x, 0);
         graph.lineTo(x, global.screenHeight);
     }
 
-    for (var y = global.yoffset - player.y ; y < global.screenHeight; y += global.screenHeight / 18) {
+    var y = step * (1 - fraction((player.y - global.screenHeight / 2) / step));
+    for (; y < global.screenHeight; y += step) {
         graph.moveTo(0, y);
         graph.lineTo(global.screenWidth, y);
     }
