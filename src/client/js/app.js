@@ -385,15 +385,10 @@ function drawPlayers(order) {
 
             x = cellCurrent.radius * Math.cos(global.spin) + circle.x;
             y = cellCurrent.radius * Math.sin(global.spin) + circle.y;
-            if(typeof(userCurrent.id) == "undefined") {
-                x = valueInRange(toCanvasCoordX(0), toCanvasCoordX(global.gameWidth), x);
-                y = valueInRange(toCanvasCoordY(0), toCanvasCoordY(global.gameHeight), y);
-            } else {
-                x = valueInRange(toCanvasCoordX(-cellCurrent.x + (cellCurrent.radius/3)),
-                                 toCanvasCoordX(global.gameWidth - cellCurrent.x + global.gameWidth - (cellCurrent.radius/3)), x);
-                y = valueInRange(toCanvasCoordY(-cellCurrent.y + (cellCurrent.radius/3)),
-                                 toCanvasCoordY(global.gameHeight - cellCurrent.y + global.gameHeight - (cellCurrent.radius/3)), y);
-            }
+
+            x = valueInRange(toCanvasCoordX(0), toCanvasCoordX(global.gameWidth), x);
+            y = valueInRange(toCanvasCoordY(0), toCanvasCoordY(global.gameHeight), y);
+
             global.spin += increase;
             xstore[i] = x;
             ystore[i] = y;
