@@ -167,7 +167,7 @@ function movePlayer(player) {
                             cell.x += pushAway.x;
                             cell.y += pushAway.y;
                         }
-                        else if(distance < radiusTotal / 1.75) {
+                        else if(distance < radiusTotal / 1.75 && cell.mass >= otherCell.mass) {
                             // console.log("[TRACE] movePlayer(): about to merge other cell #[" + j + "] into cell #[" + i + "]");
                             player.cells[i].mass += player.cells[j].mass;
                             player.cells[i].radius = util.massToRadius(player.cells[i].mass);
