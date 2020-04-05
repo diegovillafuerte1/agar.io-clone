@@ -1,7 +1,7 @@
 Agar.io Clone
 =============
 
-**CONTRIBUTOR WANTED: I'm really sorry for not have enough time to maintain this project. I'm looking for contributors who willing to keep this project going. If you feel happy to join. Please contact me via my Twitter: @huydotnet. Thank you so much!**
+**THIS FORK IS ALIVE: Yes, I've taken over the maintenance! Please let me first express my deepest gratitude and respect to the original authors. I'm very thankful they did so much great work. Now this fork is already promising, with many fixes and improvements. Please give it a shot, or have a look at [the live demo here](https://agar.apps.sandbox.gstack.io/)!**
 
 [![GitHub Stars](https://img.shields.io/github/stars/huytd/agar.io-clone.svg)](https://github.com/huytd/agar.io-clone/stargazers)
 [![GitHub Issues](https://img.shields.io/github/issues/huytd/agar.io-clone.svg)](https://github.com/huytd/agar.io-clone/issues)
