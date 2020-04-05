@@ -13,7 +13,9 @@
         },
 		"splitMass": 180
 	},
+    "splitSlowdownStep": 0.5,
     "explodeSlowdownStep": 0.8,
+    "pushAwayFactorStep": 0.005,
     "gameWidth": 5000,
     "gameHeight": 5000,
     "adminPass": "DEFAULT",

@@ -92,21 +92,21 @@ function removeFood(toRem) {
 }
 
 function movePlayer(player) {
-    var x =0,y =0;
     for(var i=0; i<player.cells.length; i++)
     {
         var cell = player.cells[i];
 
         var deltaY, deltaX;
 
-        if (cell.speed > 6.25 && (cell.moveY || cell.moveX)) {
+        if (cell.speed > 6.25 && (cell.moveY || cell.moveX) && cell.slowDownStep) {
             deltaY = cell.speed * cell.moveY;
             deltaX = cell.speed * cell.moveX;
-            cell.speed -= c.explodeSlowdownStep;
+            cell.speed -= cell.slowDownStep;
         } else {
-            if (cell.moveY || cell.moveX) {
+            if (cell.moveY || cell.moveX || cell.slowDownStep) {
                 delete cell.moveX;
                 delete cell.moveY;
+                delete cell.slowDownStep;
             }
             var target = {
                 x: player.x - cell.x + player.target.x,
@@ -141,35 +141,57 @@ function movePlayer(player) {
             player.cells[i].x += deltaX;
         }
         // Find best solution.
-        for(var j=0; j<player.cells.length; j++) {
-            if(j != i && player.cells[i] !== undefined) {
-                var distance = Math.sqrt(Math.pow(player.cells[j].y-player.cells[i].y,2) + Math.pow(player.cells[j].x-player.cells[i].x,2));
-                var radiusTotal = (player.cells[i].radius + player.cells[j].radius);
-                if(distance < radiusTotal) {
-                    if(player.lastSplit > new Date().getTime() - 1000 * c.mergeTimer) {
-                        if(player.cells[i].x < player.cells[j].x) {
-                            player.cells[i].x--;
-                        } else if(player.cells[i].x > player.cells[j].x) {
-                            player.cells[i].x++;
+        if (cell.moveX || cell.moveY) {
+            // console.log("[TRACE] movePlayer(): ignoring push away for cell #[" + i + "] with speed=[" + cell.speed + "]");
+        } else {
+            for(var j=0; j<player.cells.length; j++) {
+                if(j != i && player.cells[i] !== undefined) {
+                    // console.log("[TRACE] movePlayer(): about to push away cell #[" + i + "] away from other cell #[" + j + "]");
+
+                    var otherCell = player.cells[j];
+                    var pushAway = new V(cell.x - otherCell.x, cell.y - otherCell.y);
+                    var distance = pushAway.len();
+                    var radiusTotal = (cell.radius + otherCell.radius);
+
+                    if(distance < radiusTotal) {
+                        if (otherCell.moveX || otherCell.moveY) {
+                            // console.log("[TRACE] movePlayer(): cell #[" + i + "] ignoring push away from cell #[" + j + "] with speed=[" + otherCell.speed + "]");
+                            continue;
                         }
-                        if(player.cells[i].y < player.cells[j].y) {
-                            player.cells[i].y--;
-                        } else if((player.cells[i].y > player.cells[j].y)) {
-                            player.cells[i].y++;
+                        else if(player.lastSplit > new Date().getTime() - 1000 * c.mergeTimer) {
+                            // NOTA: we could divide by 'distance' instead of
+                            // using '.normalize()', but then we would have to
+                            // care if distance > 0
+                            pushAway.normalize().scale((radiusTotal - distance) * cell.pushAwayFactor * otherCell.pushAwayFactor);
+                            // pushAway.normalize();
+                            cell.x += pushAway.x;
+                            cell.y += pushAway.y;
                         }
-                    }
-                    else if(distance < radiusTotal / 1.75) {
-                        player.cells[i].mass += player.cells[j].mass;
-                        player.cells[i].radius = util.massToRadius(player.cells[i].mass);
-                        player.cells.splice(j, 1);
-                        for (var idx = j; idx < player.cells.length; idx++) {
-                            player.cells[idx].num = idx;
+                        else if(distance < radiusTotal / 1.75) {
+                            // console.log("[TRACE] movePlayer(): about to merge other cell #[" + j + "] into cell #[" + i + "]");
+                            player.cells[i].mass += player.cells[j].mass;
+                            player.cells[i].radius = util.massToRadius(player.cells[i].mass);
+                            player.cells.splice(j, 1);
+                            if (j < i) {
+                                i -= 1;
+                            }
+                            for (var idx = j; idx < player.cells.length; idx++) {
+                                player.cells[idx].num = idx;
+                            }
+                            j -= 1;
+                            // console.log("[TRACE] movePlayer(): merged cells. i=[" + i + "], j=[" + j + "]");
                         }
                     }
                 }
             }
+            if (cell.pushAwayFactor < 1.0) {
+                cell.pushAwayFactor += c.pushAwayFactorStep;
+            } else if (cell.pushAwayFactor > 1.0) {
+                cell.pushAwayFactor = 1.0;
+            }
         }
         if(player.cells.length > i) {
+            // console.log("[TRACE] movePlayer(): aout to clip coordinates for cell #[" + i + "]");
             var borderCalc = player.cells[i].radius / 3;
             if (player.cells[i].x > c.gameWidth - borderCalc) {
                 player.cells[i].x = c.gameWidth - borderCalc;
@@ -183,12 +205,22 @@ function movePlayer(player) {
             if (player.cells[i].y < borderCalc) {
                 player.cells[i].y = borderCalc;
             }
-            x += player.cells[i].x;
-            y += player.cells[i].y;
         }
     }
-    player.x = x/player.cells.length;
-    player.y = y/player.cells.length;
+
+
+    // Compute player viewpoint, as the barycenter of the resulting cells positions
+    var x = 0, y = 0;
+    var initialCellsCount = player.cells.length;
+    for (var cellIdx = 0; cellIdx < initialCellsCount; cellIdx++) {
+        var cell_ = player.cells[cellIdx];
+        // console.log("[TRACE] movePlayer(): computing viewpoint: cellIdx=[" + cellIdx + "], cell_.x=[" + cell_.x + "], cell_.y=[" + cell_.y + "]");
+        x += cell_.x;
+        y += cell_.y;
+    }
+    player.x = x / initialCellsCount;
+    player.y = y / initialCellsCount;
+    // console.log("[DEBUG] movePlayer(): viewpoint computed. initialCellsCount=[" + initialCellsCount + "], player.x=[" + player.x + "], player.y=[" + player.y + "]");
 }
 
 function moveMass(mass) {
@@ -303,7 +335,9 @@ function explodeCell(currentPlayer, cell, virus) {
                     radius: partsRadius,
                     speed: 20,
                     moveX: Math.cos(partAngle),
-                    moveY: Math.sin(partAngle)
+                    moveY: Math.sin(partAngle),
+                    slowDownStep: c.explodeSlowdownStep,
+                    pushAwayFactor: 0.0
                 });
             }
             cell.radius = util.massToRadius(cell.mass);
@@ -335,12 +369,13 @@ function explodeCell(currentPlayer, cell, virus) {
     console.log("[DEBUG] explodeCell(): returning");
 }
 
-function doSplitCell(currentPlayer, cell, alternateSpeed) {
+function doSplitCell(currentPlayer, cell, alternateSpeed, slowDownStep) {
     var speed = alternateSpeed ? alternateSpeed : 25;
+    var slowDown = slowDownStep ? slowDownStep : c.splitSlowdownStep;
      if (cell.mass >= c.defaultPlayerMass * 2) {
         cell.mass = cell.mass / 2;
         cell.radius = util.massToRadius(cell.mass);
-        currentPlayer.cells.push({
+        var newCell = {
             id: currentPlayer.id,
             num: currentPlayer.cells.length,
             mass: cell.mass,
@@ -349,8 +384,16 @@ function doSplitCell(currentPlayer, cell, alternateSpeed) {
             w: 0,
             h: 0,
             radius: cell.radius,
-            speed: speed
-        });
+            speed: speed,
+            pushAwayFactor: 0.0
+        };
+        if (speed > 6.25) {
+            var move = new V(currentPlayer.target.x, currentPlayer.target.y).normalize();
+            newCell.moveX = move.x;
+            newCell.moveY = move.y;
+            newCell.slowDownStep = slowDown;
+        }
+        currentPlayer.cells.push(newCell);
     }
 }
 
@@ -389,7 +432,8 @@ io.on('connection', function (socket) {
             w: 0,
             h: 0,
             radius: radius,
-            speed: 6.25
+            speed: 6.25,
+            pushAwayFactor: 1.0
         }];
         massTotal = c.defaultPlayerMass;
     }
@@ -439,7 +483,8 @@ io.on('connection', function (socket) {
                     w: 0,
                     h: 0,
                     radius: radius,
-                    speed: 6.25
+                    speed: 6.25,
+                    pushAwayFactor: 1.0
                 }];
                 player.massTotal = c.defaultPlayerMass;
             }
