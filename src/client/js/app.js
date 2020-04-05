@@ -293,6 +293,22 @@ function setupSocket(socket) {
     });
 }
 
+function toCanvasCoordX(gameX) {
+    return gameX - (player.x - global.screenWidth/2);
+}
+
+function toCanvasCoordY(gameY) {
+    return gameY - (player.y - global.screenHeight/2);
+}
+
+function toGameCoordX(canvasX) {
+    return canvasX + (player.x - global.screenWidth/2);
+}
+
+function toGameCoordY(canvasY) {
+    return canvasY + (player.y - global.screenHeight/2);
+}
+
 function drawCircle(centerX, centerY, radius, sides, spikesSize) {
     if (!spikesSize) {
         spikesSize = 0.0;
@@ -319,8 +335,7 @@ function drawFood(food) {
     graph.strokeStyle = 'hsl(' + food.hue + ', 100%, 45%)';
     graph.fillStyle = 'hsl(' + food.hue + ', 100%, 50%)';
     graph.lineWidth = foodConfig.border;
-    drawCircle(food.x - player.x + global.screenWidth / 2,
-               food.y - player.y + global.screenHeight / 2,
+    drawCircle(toCanvasCoordX(food.x), toCanvasCoordY(food.y),
                food.radius, global.foodSides);
 }
 
@@ -328,8 +343,7 @@ function drawVirus(virus) {
     graph.strokeStyle = global.virusStroke;
     graph.fillStyle = global.virusFill;
     graph.lineWidth = global.virusStrokeWidth;
-    drawCircle(virus.x - player.x + global.screenWidth / 2,
-               virus.y - player.y + global.screenHeight / 2,
+    drawCircle(toCanvasCoordX(virus.x), toCanvasCoordY(virus.y),
                virus.radius, global.virusSides, global.virusSpikesSize);
 }
 
@@ -337,17 +351,11 @@ function drawFireFood(mass) {
     graph.strokeStyle = 'hsl(' + mass.hue + ', 100%, 45%)';
     graph.fillStyle = 'hsl(' + mass.hue + ', 100%, 50%)';
     graph.lineWidth = playerConfig.border+10;
-    drawCircle(mass.x - player.x + global.screenWidth / 2,
-               mass.y - player.y + global.screenHeight / 2,
+    drawCircle(toCanvasCoordX(mass.x), toCanvasCoordY(mass.y),
                mass.radius-5, 18 + (~~(mass.masa/5)));
 }
 
 function drawPlayers(order) {
-    var start = {
-        x: player.x - (global.screenWidth / 2),
-        y: player.y - (global.screenHeight / 2)
-    };
-
     for(var z=0; z<order.length; z++)
     {
         var userCurrent = users[order[z].nCell];
@@ -369,8 +377,8 @@ function drawPlayers(order) {
         global.spin += 0.0;
 
         var circle = {
-            x: cellCurrent.x - start.x,
-            y: cellCurrent.y - start.y
+            x: toCanvasCoordX(cellCurrent.x),
+            y: toCanvasCoordY(cellCurrent.y)
         };
 
         for (var i = 0; i < points; i++) {
@@ -378,15 +386,13 @@ function drawPlayers(order) {
             x = cellCurrent.radius * Math.cos(global.spin) + circle.x;
             y = cellCurrent.radius * Math.sin(global.spin) + circle.y;
             if(typeof(userCurrent.id) == "undefined") {
-                x = valueInRange(-userCurrent.x + global.screenWidth / 2,
-                                 global.gameWidth - userCurrent.x + global.screenWidth / 2, x);
-                y = valueInRange(-userCurrent.y + global.screenHeight / 2,
-                                 global.gameHeight - userCurrent.y + global.screenHeight / 2, y);
+                x = valueInRange(toCanvasCoordX(0), toCanvasCoordX(global.gameWidth), x);
+                y = valueInRange(toCanvasCoordY(0), toCanvasCoordY(global.gameHeight), y);
             } else {
-                x = valueInRange(-cellCurrent.x - player.x + global.screenWidth / 2 + (cellCurrent.radius/3),
-                                 global.gameWidth - cellCurrent.x + global.gameWidth - player.x + global.screenWidth / 2 - (cellCurrent.radius/3), x);
-                y = valueInRange(-cellCurrent.y - player.y + global.screenHeight / 2 + (cellCurrent.radius/3),
-                                 global.gameHeight - cellCurrent.y + global.gameHeight - player.y + global.screenHeight / 2 - (cellCurrent.radius/3) , y);
+                x = valueInRange(toCanvasCoordX(-cellCurrent.x + (cellCurrent.radius/3)),
+                                 toCanvasCoordX(global.gameWidth - cellCurrent.x + global.gameWidth - (cellCurrent.radius/3)), x);
+                y = valueInRange(toCanvasCoordY(-cellCurrent.y + (cellCurrent.radius/3)),
+                                 toCanvasCoordY(global.gameHeight - cellCurrent.y + global.gameHeight - (cellCurrent.radius/3)), y);
             }
             global.spin += increase;
             xstore[i] = x;
@@ -457,13 +463,13 @@ function drawgrid() {
 
     var step = global.screenHeight / 18;
 
-    var x = step * (1 - fraction((player.x - global.screenWidth / 2) / step));
+    var x = step * (1 - fraction(toGameCoordX(0) / step));
     for (; x < global.screenWidth; x += step) {
         graph.moveTo(x, 0);
         graph.lineTo(x, global.screenHeight);
     }
 
-    var y = step * (1 - fraction((player.y - global.screenHeight / 2) / step));
+    var y = step * (1 - fraction(toGameCoordY(0) / step));
     for (; y < global.screenHeight; y += step) {
         graph.moveTo(0, y);
         graph.lineTo(global.screenWidth, y);
@@ -477,42 +483,43 @@ function drawborder() {
     graph.lineWidth = 1;
     graph.strokeStyle = playerConfig.borderColor;
 
+    var leftX = toCanvasCoordX(0),
+        topY = toCanvasCoordY(0),
+        rightX = toCanvasCoordX(global.gameWidth),
+        bottomY = toCanvasCoordY(global.gameHeight);
+
     // Left-vertical.
-    if (player.x <= global.screenWidth/2) {
+    if (leftX >= 0) {
         graph.beginPath();
-        graph.moveTo(global.screenWidth/2 - player.x, 0 ? player.y > global.screenHeight/2 : global.screenHeight/2 - player.y);
-        graph.lineTo(global.screenWidth/2 - player.x, global.gameHeight + global.screenHeight/2 - player.y);
+        graph.moveTo(leftX, topY);
+        graph.lineTo(leftX, bottomY);
         graph.strokeStyle = global.lineColor;
         graph.stroke();
     }
 
     // Top-horizontal.
-    if (player.y <= global.screenHeight/2) {
+    if (topY >= 0) {
         graph.beginPath();
-        graph.moveTo(0 ? player.x > global.screenWidth/2 : global.screenWidth/2 - player.x, global.screenHeight/2 - player.y);
-        graph.lineTo(global.gameWidth + global.screenWidth/2 - player.x, global.screenHeight/2 - player.y);
+        graph.moveTo(leftX,  topY);
+        graph.lineTo(rightX, topY);
         graph.strokeStyle = global.lineColor;
         graph.stroke();
     }
 
     // Right-vertical.
-    if (global.gameWidth - player.x <= global.screenWidth/2) {
+    if (rightX <= global.screenWidth) {
         graph.beginPath();
-        graph.moveTo(global.gameWidth + global.screenWidth/2 - player.x,
-                     global.screenHeight/2 - player.y);
-        graph.lineTo(global.gameWidth + global.screenWidth/2 - player.x,
-                     global.gameHeight + global.screenHeight/2 - player.y);
+        graph.moveTo(rightX, topY);
+        graph.lineTo(rightX, bottomY);
         graph.strokeStyle = global.lineColor;
         graph.stroke();
     }
 
     // Bottom-horizontal.
-    if (global.gameHeight - player.y <= global.screenHeight/2) {
+    if (bottomY <= global.screenHeight) {
         graph.beginPath();
-        graph.moveTo(global.gameWidth + global.screenWidth/2 - player.x,
-                     global.gameHeight + global.screenHeight/2 - player.y);
-        graph.lineTo(global.screenWidth/2 - player.x,
-                     global.gameHeight + global.screenHeight/2 - player.y);
+        graph.moveTo(leftX,  bottomY);
+        graph.lineTo(rightX, bottomY);
         graph.strokeStyle = global.lineColor;
         graph.stroke();
     }
