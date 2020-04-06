@@ -54,6 +54,13 @@ var initMassLog = util.log(c.defaultPlayerMass, c.slowBase);
 
 app.use(express.static(__dirname + '/../client'));
 
+function logDebug(level, anything) {
+    if (c.debugLevel >= level) {
+        var anyArgs = Array.prototype.slice(1, arguments);
+        console.log.apply(console, anyArgs);
+    }
+}
+
 function addFood(toAdd) {
     var radius = util.massToRadius(c.foodMass);
     while (toAdd--) {
@@ -142,11 +149,11 @@ function movePlayer(player) {
         }
         // Find best solution.
         if (cell.moveX || cell.moveY) {
-            // console.log("[TRACE] movePlayer(): ignoring push away for cell #[" + i + "] with speed=[" + cell.speed + "]");
+            // logDebug(3, "[TRACE] movePlayer(): ignoring push away for cell #[" + i + "] with speed=[" + cell.speed + "]");
         } else {
             for(var j=0; j<player.cells.length; j++) {
                 if(j != i && player.cells[i] !== undefined) {
-                    // console.log("[TRACE] movePlayer(): about to push away cell #[" + i + "] away from other cell #[" + j + "]");
+                    // logDebug(3, "[TRACE] movePlayer(): about to push away cell #[" + i + "] away from other cell #[" + j + "]");
 
                     var otherCell = player.cells[j];
                     var pushAway = new V(cell.x - otherCell.x, cell.y - otherCell.y);
@@ -155,7 +162,7 @@ function movePlayer(player) {
 
                     if(distance < radiusTotal) {
                         if (otherCell.moveX || otherCell.moveY) {
-                            // console.log("[TRACE] movePlayer(): cell #[" + i + "] ignoring push away from cell #[" + j + "] with speed=[" + otherCell.speed + "]");
+                            // logDebug(3, "[TRACE] movePlayer(): cell #[" + i + "] ignoring push away from cell #[" + j + "] with speed=[" + otherCell.speed + "]");
                             continue;
                         }
                         else if(player.lastSplit > new Date().getTime() - 1000 * c.mergeTimer) {
@@ -168,7 +175,7 @@ function movePlayer(player) {
                             cell.y += pushAway.y;
                         }
                         else if(distance < radiusTotal / 1.75 && cell.mass >= otherCell.mass) {
-                            // console.log("[TRACE] movePlayer(): about to merge other cell #[" + j + "] into cell #[" + i + "]");
+                            // logDebug(3, "[TRACE] movePlayer(): about to merge other cell #[" + j + "] into cell #[" + i + "]");
                             player.cells[i].mass += player.cells[j].mass;
                             player.cells[i].radius = util.massToRadius(player.cells[i].mass);
                             player.cells.splice(j, 1);
@@ -179,7 +186,7 @@ function movePlayer(player) {
                                 player.cells[idx].num = idx;
                             }
                             j -= 1;
-                            // console.log("[TRACE] movePlayer(): merged cells. i=[" + i + "], j=[" + j + "]");
+                            // logDebug(3, "[TRACE] movePlayer(): merged cells. i=[" + i + "], j=[" + j + "]");
                         }
                     }
                 }
@@ -191,7 +198,7 @@ function movePlayer(player) {
             }
         }
         if(player.cells.length > i) {
-            // console.log("[TRACE] movePlayer(): aout to clip coordinates for cell #[" + i + "]");
+            // logDebug(3, "[TRACE] movePlayer(): aout to clip coordinates for cell #[" + i + "]");
             var borderCalc = player.cells[i].radius / 3;
             if (player.cells[i].x > c.gameWidth - borderCalc) {
                 player.cells[i].x = c.gameWidth - borderCalc;
@@ -215,7 +222,7 @@ function movePlayer(player) {
     var initialCellsCount = player.cells.length;
     for (var cellIdx = 0; cellIdx < initialCellsCount; cellIdx++) {
         var cell_ = player.cells[cellIdx];
-        // console.log("[TRACE] movePlayer(): computing viewpoint: cellIdx=[" + cellIdx + "], cell_.x=[" + cell_.x + "], cell_.y=[" + cell_.y + "]");
+        // logDebug(3, "[TRACE] movePlayer(): computing viewpoint: cellIdx=[" + cellIdx + "], cell_.x=[" + cell_.x + "], cell_.y=[" + cell_.y + "]");
         viewCenter.x += cell_.x;
         viewCenter.y += cell_.y;
 
@@ -226,7 +233,7 @@ function movePlayer(player) {
     }
     player.x = viewCenter.x / initialCellsCount;
     player.y = viewCenter.y / initialCellsCount;
-    // console.log("[DEBUG] movePlayer(): viewpoint computed. initialCellsCount=[" + initialCellsCount + "], player.x=[" + player.x + "], player.y=[" + player.y + "]");
+    // logDebug(2, "[DEBUG] movePlayer(): viewpoint computed. initialCellsCount=[" + initialCellsCount + "], player.x=[" + player.x + "], player.y=[" + player.y + "]");
 
     var spanX = (bounds.maxX - bounds.minX) * 1.4,
         spanY = (bounds.maxY - bounds.minY) * 1.4,
@@ -280,14 +287,14 @@ function balanceMass() {
     var foodToRemove = -Math.max(foodDiff, maxFoodDiff);
 
     if (foodToAdd > 0) {
-        //console.log('[DEBUG] Adding ' + foodToAdd + ' food to level!');
+        // logDebug(2, '[DEBUG] Adding ' + foodToAdd + ' food to level!');
         addFood(foodToAdd);
-        //console.log('[DEBUG] Mass rebalanced!');
+        // logDebug(2, '[DEBUG] Mass rebalanced!');
     }
     else if (foodToRemove > 0) {
-        //console.log('[DEBUG] Removing ' + foodToRemove + ' food from level!');
+        // logDebug(2, '[DEBUG] Removing ' + foodToRemove + ' food from level!');
         removeFood(foodToRemove);
-        //console.log('[DEBUG] Mass rebalanced!');
+        // logDebug(2, '[DEBUG] Mass rebalanced!');
     }
 
     var virusToAdd = c.maxVirus - virus.length;
@@ -307,19 +314,19 @@ function explodeCell(currentPlayer, cell, virus) {
             var partsMass = c.defaultPlayerMass * 2,
                 partsCount = Math.min(Math.max(0, Math.floor(cell.mass / partsMass) - 2), remainingCellsCount),
                 splitAfterExplode = 0;
-            console.log("[DEBUG] explode(): (1) partsMass=[" + partsMass + "], cell.mass=[" + Math.floor(cell.mass) + "], remainingCellsCount=[" + remainingCellsCount + "], partsCount=[" + partsCount + "]");
+            // logDebug(2, "[DEBUG] explode(): (1) partsMass=[" + partsMass + "], cell.mass=[" + Math.floor(cell.mass) + "], remainingCellsCount=[" + remainingCellsCount + "], partsCount=[" + partsCount + "]");
             if ((cell.mass - partsMass * partsCount) > 6 * partsMass) {
                 partsMass = c.defaultPlayerMass * 3;
                 partsCount = Math.min(Math.max(0, Math.floor(cell.mass / partsMass) - 2), remainingCellsCount);
             }
-            console.log("[DEBUG] explode(): (2) partsMass=[" + partsMass + "], cell.mass=[" + Math.floor(cell.mass) + "], remainingCellsCount=[" + remainingCellsCount + "], partsCount=[" + partsCount + "]");
+            // logDebug(2, "[DEBUG] explode(): (2) partsMass=[" + partsMass + "], cell.mass=[" + Math.floor(cell.mass) + "], remainingCellsCount=[" + remainingCellsCount + "], partsCount=[" + partsCount + "]");
             while (splitAfterExplode < 3 && ((cell.mass - partsMass * partsCount) / Math.pow(2, splitAfterExplode) > 8 * partsMass) && (partsCount > 8)) {
                 splitAfterExplode += 1;
                 partsCount -= Math.pow(2, splitAfterExplode - 1);
-                console.log("[DEBUG] explode(): (3) partsMass=[" + partsMass + "], cell.mass=[" + Math.floor(cell.mass) +
-                    "], remainingCellsCount=[" + remainingCellsCount + "], partsCount=[" + partsCount +
-                    "], ((cell.mass - partsMass * partsCount) / Math.pow(2, splitAfterExplode)=[" + ((cell.mass - partsMass * partsCount) / Math.pow(2, splitAfterExplode)) +
-                    "], (6 * partsMass)=[" + (6 * partsMass) + "]");
+                // logDebug(2, "[DEBUG] explode(): (3) partsMass=[" + partsMass + "], cell.mass=[" + Math.floor(cell.mass) +
+                //     "], remainingCellsCount=[" + remainingCellsCount + "], partsCount=[" + partsCount +
+                //     "], ((cell.mass - partsMass * partsCount) / Math.pow(2, splitAfterExplode)=[" + ((cell.mass - partsMass * partsCount) / Math.pow(2, splitAfterExplode)) +
+                //     "], (6 * partsMass)=[" + (6 * partsMass) + "]");
             }
 
             var partsRadius = util.massToRadius(partsMass);
@@ -354,9 +361,9 @@ function explodeCell(currentPlayer, cell, virus) {
             }
             cell.radius = util.massToRadius(cell.mass);
             var splitCandidates = [ cell ];
-            console.log("[DEBUG] explode(): splitting cells splitAfterExplode=[" + splitAfterExplode + "], splitCandidates.length=[" + splitCandidates.length + "]");
+            // logDebug(2, "[DEBUG] explode(): splitting cells splitAfterExplode=[" + splitAfterExplode + "], splitCandidates.length=[" + splitCandidates.length + "]");
             while (--splitAfterExplode >= 0) {
-                console.log("[DEBUG] explode(): splitting cells splitAfterExplode=[" + splitAfterExplode + "], splitCandidates.length=[" + splitCandidates.length + "]");
+                // logDebug(2, "[DEBUG] explode(): splitting cells splitAfterExplode=[" + splitAfterExplode + "], splitCandidates.length=[" + splitCandidates.length + "]");
                 var initialCandidatesCount = splitCandidates.length;
                 for (idx = 0; idx < initialCandidatesCount; idx++) {
                     doSplitCell(currentPlayer, splitCandidates[idx], cell.speed);
@@ -364,10 +371,10 @@ function explodeCell(currentPlayer, cell, virus) {
                 }
             }
         }
-        console.log("[DEBUG] explode(): returning");
+        // logDebug(2, "[DEBUG] explode(): returning");
     }
 
-    console.log("[DEBUG] explodeCell(): currentPlayer.cells.length=[" + currentPlayer.cells.length + "]");
+    // logDebug(2, "[DEBUG] explodeCell(): currentPlayer.cells.length=[" + currentPlayer.cells.length + "]");
 
     if (currentPlayer.cells.length >= c.limitSplit) {
         return; // Already divided into too manyparts: just eat the virus
@@ -378,7 +385,7 @@ function explodeCell(currentPlayer, cell, virus) {
 
     explode(cell);
     currentPlayer.lastSplit = new Date().getTime();
-    console.log("[DEBUG] explodeCell(): returning");
+    // logDebug(2, "[DEBUG] explodeCell(): returning");
 }
 
 function doSplitCell(currentPlayer, cell, alternateSpeed, slowDownStep) {
@@ -516,7 +523,7 @@ io.on('connection', function (socket) {
                 gameWidth: c.gameWidth,
                 gameHeight: c.gameHeight
             });
-            console.log('Total players: ' + users.length);
+            console.log('[INFO] Total players: ' + users.length);
         }
 
     });
@@ -556,14 +563,14 @@ io.on('connection', function (socket) {
 
     socket.on('pass', function(data) {
         if (data[0] === c.adminPass) {
-            console.log('[ADMIN] ' + currentPlayer.name + ' just logged in as an admin!');
+            console.log('[INFO] ' + currentPlayer.name + ' just logged in as an admin!');
             socket.emit('serverMSG', 'Welcome back ' + currentPlayer.name);
             socket.broadcast.emit('serverMSG', currentPlayer.name + ' just logged in as admin!');
             currentPlayer.admin = true;
         } else {
             
             // TODO: Actually log incorrect passwords.
-              console.log('[ADMIN] ' + currentPlayer.name + ' attempted to log in with incorrect password.');
+              console.log('[WARN] ' + currentPlayer.name + ' attempted to log in with incorrect password.');
               socket.emit('serverMSG', 'Password incorrect, attempt logged.');
             if (s.host !== "DEFAULT") {
                 pool.query('INSERT INTO logging SET name=' + currentPlayer.name + ', reason="Invalid login attempt as admin"');
@@ -588,10 +595,10 @@ io.on('connection', function (socket) {
                         }
                     }
                     if (reason !== '') {
-                       console.log('[ADMIN] User ' + users[e].name + ' kicked successfully by ' + currentPlayer.name + ' for reason ' + reason);
+                       console.log('[INFO] User ' + users[e].name + ' kicked successfully by ' + currentPlayer.name + ' for reason ' + reason);
                     }
                     else {
-                       console.log('[ADMIN] User ' + users[e].name + ' kicked successfully by ' + currentPlayer.name);
+                       console.log('[INFO] User ' + users[e].name + ' kicked successfully by ' + currentPlayer.name);
                     }
                     socket.emit('serverMSG', 'User ' + users[e].name + ' was kicked by ' + currentPlayer.name);
                     sockets[users[e].id].emit('kick', reason);
@@ -604,7 +611,7 @@ io.on('connection', function (socket) {
                 socket.emit('serverMSG', 'Could not locate user or user is an admin.');
             }
         } else {
-            console.log('[ADMIN] ' + currentPlayer.name + ' is trying to use -kick but isn\'t an admin.');
+            console.log('[WARN] ' + currentPlayer.name + ' is trying to use -kick but isn\'t an admin.');
             socket.emit('serverMSG', 'You are not permitted to use this command.');
         }
     });
@@ -930,5 +937,5 @@ setInterval(sendUpdates, 1000 / c.networkUpdateFactor);
 var ipaddress = process.env.OPENSHIFT_NODEJS_IP || process.env.IP || c.host;
 var serverport = process.env.OPENSHIFT_NODEJS_PORT || process.env.PORT || c.port;
 http.listen( serverport, ipaddress, function() {
-    console.log('[DEBUG] Listening on ' + ipaddress + ':' + serverport);
+    logDebug(1, '[DEBUG] Listening on ' + ipaddress + ':' + serverport);
 });
