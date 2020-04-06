@@ -250,7 +250,7 @@ function setupSocket(socket) {
                 break;
             }
         }
-        if(global.playerType == 'player') {
+        if(global.playerType == 'player' && playerData) {
             var xoffset = player.x - playerData.x;
             var yoffset = player.y - playerData.y;
 

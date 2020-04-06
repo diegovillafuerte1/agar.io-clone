@@ -951,6 +951,7 @@ function sendUpdates() {
 
         var visibleCells  = users
             .map(function(f) {
+                try {
                 for(var z=0; z<f.cells.length; z++)
                 {
                     if ( f.cells[z].x+f.cells[z].radius > u.x - viewWidth/2 - 20 &&
@@ -987,8 +988,16 @@ function sendUpdates() {
                         }
                     }
                 }
+                } catch (err) {
+                    console.log("[ERROR] sendUpdates(): while computing visible cells for user [" + u.name + "]:");
+                    console.log(err);
+                }
             })
             .filter(function(f) { return f; });
+
+        if (visibleCells.length <= 0) {
+            console.log("[ERROR] sendUpdates(): the visibleCells array is empty for user [" + u.name + "]");
+        }
 
         sockets[u.id].emit('serverTellPlayerMove', visibleCells, visibleFood, visibleMass, visibleVirus);
         if (leaderboardChanged) {
