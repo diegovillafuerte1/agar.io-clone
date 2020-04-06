@@ -117,8 +117,8 @@ class Canvas {
 
     gameInput(mouse) {
     	if (!this.directionLock) {
-    		this.parent.target.x = mouse.clientX - this.width / 2;
-    		this.parent.target.y = mouse.clientY - this.height / 2;
+            this.parent.target.x = (mouse.clientX - this.width / 2) * global.player.viewWidth / global.screenWidth;
+            this.parent.target.y = (mouse.clientY - this.height / 2) * global.player.viewWidth / global.screenWidth;
             global.target = this.parent.target;
     	}
     }

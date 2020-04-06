@@ -18,6 +18,7 @@
     "pushAwayFactorStep": 0.005,
     "gameWidth": 5000,
     "gameHeight": 5000,
+    "minViewZoom": 1000,
     "adminPass": "DEFAULT",
     "gameMass": 20000,
     "maxFood": 1000,

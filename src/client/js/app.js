@@ -125,9 +125,9 @@ var player = {
     id: -1,
     x: global.screenWidth / 2,
     y: global.screenHeight / 2,
-    screenWidth: global.screenWidth,
-    screenHeight: global.screenHeight,
-    target: {x: global.screenWidth / 2, y: global.screenHeight / 2}
+    target: { x: 0, y: 0 },
+    viewWidth: global.screenWidth * 1000 / Math.max(global.screenWidth, global.screenHeight),
+    viewHeight: global.screenHeight * 1000 / Math.max(global.screenWidth, global.screenHeight)
 };
 global.player = player;
 
@@ -179,8 +179,6 @@ function setupSocket(socket) {
     socket.on('welcome', function (playerSettings) {
         player = playerSettings;
         player.name = global.playerName;
-        player.screenWidth = global.screenWidth;
-        player.screenHeight = global.screenHeight;
         player.target = window.canvas.target;
         global.player = player;
         window.chat.player = player;
@@ -258,6 +256,8 @@ function setupSocket(socket) {
 
             player.x = playerData.x;
             player.y = playerData.y;
+            player.viewWidth = playerData.viewWidth;
+            player.viewHeight = playerData.viewHeight;
             player.hue = playerData.hue;
             player.massTotal = playerData.massTotal;
             player.cells = playerData.cells;
@@ -293,20 +293,24 @@ function setupSocket(socket) {
     });
 }
 
+function scaleToCanvas(dist) {
+    return dist * global.screenWidth / player.viewWidth;
+}
+
 function toCanvasCoordX(gameX) {
-    return gameX - (player.x - global.screenWidth/2);
+    return (gameX - (player.x - player.viewWidth/2)) * global.screenWidth / player.viewWidth;
 }
 
 function toCanvasCoordY(gameY) {
-    return gameY - (player.y - global.screenHeight/2);
+    return (gameY - (player.y - player.viewHeight/2)) * global.screenHeight / player.viewHeight;
 }
 
 function toGameCoordX(canvasX) {
-    return canvasX + (player.x - global.screenWidth/2);
+    return canvasX * player.viewWidth / global.screenWidth + (player.x - player.viewWidth/2);
 }
 
 function toGameCoordY(canvasY) {
-    return canvasY + (player.y - global.screenHeight/2);
+    return canvasY * player.viewHeight / global.screenHeight + (player.y - player.viewHeight/2);
 }
 
 function drawCircle(centerX, centerY, radius, sides, spikesSize) {
@@ -336,15 +340,16 @@ function drawFood(food) {
     graph.fillStyle = 'hsl(' + food.hue + ', 100%, 50%)';
     graph.lineWidth = foodConfig.border;
     drawCircle(toCanvasCoordX(food.x), toCanvasCoordY(food.y),
-               food.radius, global.foodSides);
+               scaleToCanvas(food.radius), global.foodSides);
 }
 
 function drawVirus(virus) {
     graph.strokeStyle = global.virusStroke;
     graph.fillStyle = global.virusFill;
     graph.lineWidth = global.virusStrokeWidth;
+    graph.lineCap = "butt";
     drawCircle(toCanvasCoordX(virus.x), toCanvasCoordY(virus.y),
-               virus.radius, global.virusSides, global.virusSpikesSize);
+               scaleToCanvas(virus.radius), global.virusSides, scaleToCanvas(global.virusSpikesSize));
 }
 
 function drawFireFood(mass) {
@@ -352,7 +357,7 @@ function drawFireFood(mass) {
     graph.fillStyle = 'hsl(' + mass.hue + ', 100%, 50%)';
     graph.lineWidth = playerConfig.border+10;
     drawCircle(toCanvasCoordX(mass.x), toCanvasCoordY(mass.y),
-               mass.radius-5, 18 + (~~(mass.masa/5)));
+               scaleToCanvas(mass.radius-5), 18 + (~~(mass.masa/5)));
 }
 
 function drawPlayers(order) {
@@ -383,8 +388,8 @@ function drawPlayers(order) {
 
         for (var i = 0; i < points; i++) {
 
-            x = cellCurrent.radius * Math.cos(global.spin) + circle.x;
-            y = cellCurrent.radius * Math.sin(global.spin) + circle.y;
+            x = scaleToCanvas(cellCurrent.radius) * Math.cos(global.spin) + circle.x;
+            y = scaleToCanvas(cellCurrent.radius) * Math.sin(global.spin) + circle.y;
 
             x = valueInRange(toCanvasCoordX(0), toCanvasCoordX(global.gameWidth), x);
             y = valueInRange(toCanvasCoordY(0), toCanvasCoordY(global.gameHeight), y);
@@ -419,7 +424,7 @@ function drawPlayers(order) {
         else
             nameCell = userCurrent.name;
 
-        var fontSize = Math.max(cellCurrent.radius / 3, 12);
+        var fontSize = Math.max(scaleToCanvas(cellCurrent.radius) / 3, 12);
         graph.lineWidth = playerConfig.textBorderSize;
         graph.fillStyle = playerConfig.textColor;
         graph.strokeStyle = playerConfig.textBorder;
@@ -456,16 +461,17 @@ function drawgrid() {
      graph.globalAlpha = 0.15;
      graph.beginPath();
 
-    var step = global.screenHeight / 18;
+    var step = global.gridSize,
+        scaledStep = scaleToCanvas(step);
 
-    var x = step * (1 - fraction(toGameCoordX(0) / step));
-    for (; x < global.screenWidth; x += step) {
+    var x = scaledStep * (1 - fraction(toGameCoordX(0) / step));
+    for (; x < global.screenWidth; x += scaledStep) {
         graph.moveTo(x, 0);
         graph.lineTo(x, global.screenHeight);
     }
 
-    var y = step * (1 - fraction(toGameCoordY(0) / step));
-    for (; y < global.screenHeight; y += step) {
+    var y = scaledStep * (1 - fraction(toGameCoordY(0) / step));
+    for (; y < global.screenHeight; y += scaledStep) {
         graph.moveTo(0, y);
         graph.lineTo(global.screenWidth, y);
     }
@@ -616,8 +622,8 @@ window.addEventListener('resize', resize);
 function resize() {
     if (!socket) return;
 
-    player.screenWidth = c.width = global.screenWidth = global.playerType == 'player' ? window.innerWidth : global.gameWidth;
-    player.screenHeight = c.height = global.screenHeight = global.playerType == 'player' ? window.innerHeight : global.gameHeight;
+    c.width = global.screenWidth = (global.playerType == 'player') ? window.innerWidth : global.gameWidth;
+    c.height = global.screenHeight = (global.playerType == 'player') ? window.innerHeight : global.gameHeight;
 
     if (global.playerType == 'spectate') {
         player.x = global.gameWidth / 2;

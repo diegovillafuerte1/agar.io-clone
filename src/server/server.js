@@ -210,17 +210,29 @@ function movePlayer(player) {
 
 
     // Compute player viewpoint, as the barycenter of the resulting cells positions
-    var x = 0, y = 0;
+    var viewCenter = new V(),
+        bounds = { minX: c.gameWidth, minY: c.gameHeight, maxX: 0, maxY: 0 };
     var initialCellsCount = player.cells.length;
     for (var cellIdx = 0; cellIdx < initialCellsCount; cellIdx++) {
         var cell_ = player.cells[cellIdx];
         // console.log("[TRACE] movePlayer(): computing viewpoint: cellIdx=[" + cellIdx + "], cell_.x=[" + cell_.x + "], cell_.y=[" + cell_.y + "]");
-        x += cell_.x;
-        y += cell_.y;
+        viewCenter.x += cell_.x;
+        viewCenter.y += cell_.y;
+
+        bounds.minX = Math.min(bounds.minX, cell_.x - cell_.radius);
+        bounds.minY = Math.min(bounds.minY, cell_.y - cell_.radius);
+        bounds.maxX = Math.max(bounds.maxX, cell_.x + cell_.radius);
+        bounds.maxY = Math.max(bounds.maxY, cell_.y + cell_.radius);
     }
-    player.x = x / initialCellsCount;
-    player.y = y / initialCellsCount;
+    player.x = viewCenter.x / initialCellsCount;
+    player.y = viewCenter.y / initialCellsCount;
     // console.log("[DEBUG] movePlayer(): viewpoint computed. initialCellsCount=[" + initialCellsCount + "], player.x=[" + player.x + "], player.y=[" + player.y + "]");
+
+    var spanX = (bounds.maxX - bounds.minX) * 1.4,
+        spanY = (bounds.maxY - bounds.minY) * 1.4,
+        aspectRatio = player.screenWidth / player.screenHeight;
+
+    player.viewZoom = Math.max(c.minViewZoom, spanX, spanX / aspectRatio, spanY, spanY * aspectRatio);
 }
 
 function moveMass(mass) {
@@ -450,7 +462,8 @@ io.on('connection', function (socket) {
         target: {
             x: 0,
             y: 0
-        }
+        },
+        viewZoom: c.minViewZoom
     };
 
     socket.on('gotit', function (player) {
@@ -825,12 +838,16 @@ function sendUpdates() {
         u.x = u.x || c.gameWidth / 2;
         u.y = u.y || c.gameHeight / 2;
 
+        var largestDimension = Math.max(u.screenWidth, u.screenHeight),
+            viewWidth = Math.round(u.screenWidth * u.viewZoom / largestDimension),
+            viewHeight = Math.round(u.screenHeight * u.viewZoom / largestDimension);
+
         var visibleFood  = food
             .map(function(f) {
-                if ( f.x > u.x - u.screenWidth/2 - 20 &&
-                    f.x < u.x + u.screenWidth/2 + 20 &&
-                    f.y > u.y - u.screenHeight/2 - 20 &&
-                    f.y < u.y + u.screenHeight/2 + 20) {
+                if ( f.x > u.x - viewWidth/2 - 20 &&
+                    f.x < u.x + viewWidth/2 + 20 &&
+                    f.y > u.y - viewHeight/2 - 20 &&
+                    f.y < u.y + viewHeight/2 + 20) {
                     return f;
                 }
             })
@@ -838,10 +855,10 @@ function sendUpdates() {
 
         var visibleVirus  = virus
             .map(function(f) {
-                if ( f.x > u.x - u.screenWidth/2 - f.radius &&
-                    f.x < u.x + u.screenWidth/2 + f.radius &&
-                    f.y > u.y - u.screenHeight/2 - f.radius &&
-                    f.y < u.y + u.screenHeight/2 + f.radius) {
+                if ( f.x > u.x - viewWidth/2 - f.radius &&
+                    f.x < u.x + viewWidth/2 + f.radius &&
+                    f.y > u.y - viewHeight/2 - f.radius &&
+                    f.y < u.y + viewHeight/2 + f.radius) {
                     return f;
                 }
             })
@@ -849,10 +866,10 @@ function sendUpdates() {
 
         var visibleMass = massFood
             .map(function(f) {
-                if ( f.x+f.radius > u.x - u.screenWidth/2 - 20 &&
-                    f.x-f.radius < u.x + u.screenWidth/2 + 20 &&
-                    f.y+f.radius > u.y - u.screenHeight/2 - 20 &&
-                    f.y-f.radius < u.y + u.screenHeight/2 + 20) {
+                if ( f.x+f.radius > u.x - viewWidth/2 - 20 &&
+                    f.x-f.radius < u.x + viewWidth/2 + 20 &&
+                    f.y+f.radius > u.y - viewHeight/2 - 20 &&
+                    f.y-f.radius < u.y + viewHeight/2 + 20) {
                     return f;
                 }
             })
@@ -862,10 +879,10 @@ function sendUpdates() {
             .map(function(f) {
                 for(var z=0; z<f.cells.length; z++)
                 {
-                    if ( f.cells[z].x+f.cells[z].radius > u.x - u.screenWidth/2 - 20 &&
-                        f.cells[z].x-f.cells[z].radius < u.x + u.screenWidth/2 + 20 &&
-                        f.cells[z].y+f.cells[z].radius > u.y - u.screenHeight/2 - 20 &&
-                        f.cells[z].y-f.cells[z].radius < u.y + u.screenHeight/2 + 20) {
+                    if ( f.cells[z].x+f.cells[z].radius > u.x - viewWidth/2 - 20 &&
+                        f.cells[z].x-f.cells[z].radius < u.x + viewWidth/2 + 20 &&
+                        f.cells[z].y+f.cells[z].radius > u.y - viewHeight/2 - 20 &&
+                        f.cells[z].y-f.cells[z].radius < u.y + viewHeight/2 + 20) {
                         z = f.cells.lenth;
                         if(f.id !== u.id) {
                             return {
@@ -885,6 +902,8 @@ function sendUpdates() {
                                 cells: f.cells,
                                 massTotal: Math.round(f.massTotal),
                                 hue: f.hue,
+                                viewWidth: viewWidth,
+                                viewHeight: viewHeight
                             };
                         }
                     }
