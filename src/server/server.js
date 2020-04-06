@@ -15,16 +15,18 @@ var c = require('../../config.json');
 var util = require('./lib/util');
 
 // Import quadtree.
-var quadtree = require('simple-quadtree');
+var QuadTree = require('simple-quadtree');
+const shortid = require('shortid');
 
 //call sqlinfo
 var s = c.sqlinfo;
 
-var tree = quadtree(0, 0, c.gameWidth, c.gameHeight);
+var tree = QuadTree(0, 0, c.gameWidth, c.gameHeight, { maxchildren: 10 });
 
 var users = [];
 var massFood = [];
-var food = [];
+var foodArray = [];
+var foodTree = QuadTree(0, 0, c.gameWidth, c.gameHeight, { maxchildren: 10 });
 var virus = [];
 var sockets = {};
 
@@ -33,6 +35,16 @@ var leaderboardChanged = false;
 
 var V = SAT.Vector;
 var C = SAT.Circle;
+
+C.prototype.boundingBoxAsSearchArea = function () {
+    var diameter = this.r * 2;
+    return {
+        x: this.pos.x - this.r,
+        y: this.pos.y - this.r,
+        w: diameter,
+        h: diameter
+    };
+};
 
 if(s.host !== "DEFAULT") {
     var pool = sql.createConnection({
@@ -64,16 +76,20 @@ function logDebug(level, anything) {
 function addFood(toAdd) {
     var radius = util.massToRadius(c.foodMass);
     while (toAdd--) {
-        var position = c.foodUniformDisposition ? util.uniformPosition(food, radius) : util.randomPosition(radius);
-        food.push({
-            // Make IDs unique.
-            id: ((new Date()).getTime() + '' + food.length) >>> 0,
+        var position = c.foodUniformDisposition ? util.uniformPosition(foodArray, radius) : util.randomPosition(radius);
+        var newFood = {
+            id: 'F.' + shortid.generate(),
+            num: foodArray.length,
             x: position.x,
             y: position.y,
+            w: 0,
+            h: 0,
             radius: radius,
             mass: Math.random() + 2,
             hue: Math.round(Math.random() * 360)
-        });
+        };
+        foodArray.push(newFood);
+        foodTree.put(newFood);
     }
 }
 
@@ -94,7 +110,8 @@ function addVirus(toAdd) {
 
 function removeFood(toRem) {
     while (toRem--) {
-        food.pop();
+        var f = foodArray.pop();
+        foodTree.remove(f, 'id');
     }
 }
 
@@ -275,13 +292,13 @@ function moveMass(mass) {
 }
 
 function balanceMass() {
-    var totalMass = food.length * c.foodMass +
+    var totalMass = foodArray.length * c.foodMass +
         users
             .map(function(u) {return u.massTotal; })
             .reduce(function(pu,cu) { return pu+cu;}, 0);
 
     var massDiff = c.gameMass - totalMass;
-    var maxFoodDiff = c.maxFood - food.length;
+    var maxFoodDiff = c.maxFood - foodArray.length;
     var foodDiff = parseInt(massDiff / c.foodMass) - maxFoodDiff;
     var foodToAdd = Math.min(foodDiff, maxFoodDiff);
     var foodToRemove = -Math.max(foodDiff, maxFoodDiff);
@@ -723,16 +740,23 @@ function tickPlayer(currentPlayer) {
 
     movePlayer(currentPlayer);
 
-    function funcFood(f) {
-        return SAT.pointInCircle(new V(f.x, f.y), playerCircle);
+    function eatFood(food) {
+        if (SAT.pointInCircle(food, cellCircle)) {
+            foodArray.splice(food.num, 1);
+            for (var idx = food.num; idx < foodArray.length; idx += 1) {
+                foodArray[idx].num = idx;
+            }
+            foodTree.remove(food, 'id');
+            masaGanada += c.foodMass;
+        }
     }
 
-    function deleteFood(f) {
-        food.splice(f, 1);
+    function funcFood(f) {
+        return SAT.pointInCircle(new V(f.x, f.y), cellCircle);
     }
 
     function eatMass(m) {
-        if(SAT.pointInCircle(new V(m.x, m.y), playerCircle)){
+        if(SAT.pointInCircle(new V(m.x, m.y), cellCircle)){
             if(m.id == currentPlayer.id && m.speed > 0 && z == m.num)
                 return false;
             if(currentCell.mass > m.masa * 1.1)
@@ -744,7 +768,7 @@ function tickPlayer(currentPlayer) {
     function check(cell) {
         if (cell.mass > 10 && cell.id !== currentPlayer.id) {
             var response = new SAT.Response();
-            var collided = SAT.testCircleCircle(playerCircle,
+            var collided = SAT.testCircleCircle(cellCircle,
                 new C(new V(cell.x, cell.y), cell.radius),
                 response);
             if (collided) {
@@ -753,7 +777,7 @@ function tickPlayer(currentPlayer) {
                 playerCollisions.push(response);
             }
         }
-        return true;
+        return true; // continue iterating in the quadtree
     }
 
     function collisionCheck(collision) {
@@ -793,16 +817,13 @@ function tickPlayer(currentPlayer) {
     }
 
     for(var z=0; z<currentPlayer.cells.length; z++) {
-        var currentCell = currentPlayer.cells[z];
-        var playerCircle = new C(
-            new V(currentCell.x, currentCell.y),
-            currentCell.radius
-        );
+        var currentCell = currentPlayer.cells[z],
+            cellCenter = new V().copy(currentCell),
+            cellCircle = new C(cellCenter, currentCell.radius);
 
-        var foodEaten = food.map(funcFood)
-            .reduce( function(a, b, c) { return b ? a.concat(c) : a; }, []);
-
-        foodEaten.forEach(deleteFood);
+        var masaGanada = 0,
+            cellBoundingBoxSearchArea = cellCircle.boundingBoxAsSearchArea();
+        foodTree.get(cellBoundingBoxSearchArea).forEach(eatFood);
 
         var massEaten = massFood.map(eatMass)
             .reduce(function(a, b, c) {return b ? a.concat(c) : a; }, []);
@@ -814,13 +835,12 @@ function tickPlayer(currentPlayer) {
             currentCell.mass += virus[virusCollision].mass / 4;
             currentPlayer.massTotal += virus[virusCollision].mass / 4;
             currentCell.radius = util.massToRadius(currentCell.mass);
-            playerCircle.r = currentCell.radius;
+            cellCircle.r = currentCell.radius;
 
           explodeCell(currentPlayer, currentPlayer.cells[z], virus[virusCollision]);
           virus.splice(virusCollision, 1);
         }
 
-        var masaGanada = 0;
         for(var m=0; m<massEaten.length; m++) {
             masaGanada += massFood[massEaten[m]].masa;
             massFood.splice(massEaten[m],1);
@@ -833,11 +853,10 @@ function tickPlayer(currentPlayer) {
 
         if(typeof(currentCell.speed) == "undefined")
             currentCell.speed = 6.25;
-        masaGanada += (foodEaten.length * c.foodMass);
         currentCell.mass += masaGanada;
         currentPlayer.massTotal += masaGanada;
         currentCell.radius = util.massToRadius(currentCell.mass);
-        playerCircle.r = currentCell.radius;
+        cellCircle.r = currentCell.radius;
 
         tree.clear();
         for (var idx = 0; idx < users.length; idx++) {
@@ -845,13 +864,7 @@ function tickPlayer(currentPlayer) {
         }
         var playerCollisions = [];
 
-        var searchArea = {
-            x: currentCell.x - currentCell.radius,
-            y: currentCell.y - currentCell.radius,
-            w: currentCell.radius * 2,
-            h: currentCell.radius * 2
-        };
-        var otherCells = tree.get(searchArea, check);
+        var otherCells = tree.get(cellBoundingBoxSearchArea, check);
 
         playerCollisions.forEach(collisionCheck);
     }
@@ -916,16 +929,13 @@ function sendUpdates() {
             viewWidth = Math.round(u.screenWidth * u.viewZoom / largestDimension),
             viewHeight = Math.round(u.screenHeight * u.viewZoom / largestDimension);
 
-        var visibleFood  = food
-            .map(function(f) {
-                if ( f.x > u.x - viewWidth/2 - 20 &&
-                    f.x < u.x + viewWidth/2 + 20 &&
-                    f.y > u.y - viewHeight/2 - 20 &&
-                    f.y < u.y + viewHeight/2 + 20) {
-                    return f;
-                }
-            })
-            .filter(function(f) { return f; });
+        var viewArea = {
+            x: u.x - viewWidth/2,
+            y: u.y - viewHeight/2,
+            w: viewWidth,
+            h: viewHeight
+        };
+        var visibleFood = foodTree.get(viewArea, 20, []);
 
         var visibleVirus  = virus
             .map(function(f) {
