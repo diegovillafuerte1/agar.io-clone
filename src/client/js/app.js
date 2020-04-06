@@ -247,7 +247,7 @@ function setupSocket(socket) {
         for(var i =0; i< userData.length; i++) {
             if(typeof(userData[i].id) == "undefined") {
                 playerData = userData[i];
-                i = userData.length;
+                break;
             }
         }
         if(global.playerType == 'player') {
