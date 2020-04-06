@@ -445,6 +445,14 @@ function drawPlayers(order) {
             graph.strokeText(Math.round(cellCurrent.mass), circle.x, circle.y+fontSize);
             graph.fillText(Math.round(cellCurrent.mass), circle.x, circle.y+fontSize);
         }
+        if (global.playerType == 'spectate' && userCurrent.screenWidth && userCurrent.screenHeight) {
+            graph.lineWidth = playerConfig.border;
+            graph.strokeStyle = 'hsl(' + userCurrent.hue + ', 100%, 40%)';
+            graph.globalAlpha = 0.8;
+            graph.strokeRect(toCanvasCoordX(userCurrent.x - userCurrent.screenWidth/2), toCanvasCoordY(userCurrent.y - userCurrent.screenHeight/2),
+                             userCurrent.screenWidth, userCurrent.screenHeight);
+            graph.globalAlpha = 1;
+        }
     }
 }
 

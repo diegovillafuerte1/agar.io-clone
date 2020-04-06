@@ -959,15 +959,20 @@ function sendUpdates() {
                         f.cells[z].y-f.cells[z].radius < u.y + viewHeight/2 + 20) {
                         z = f.cells.lenth;
                         if(f.id !== u.id) {
-                            return {
+                            var otherPlayer = {
                                 id: f.id,
                                 x: f.x,
                                 y: f.y,
                                 cells: f.cells,
                                 massTotal: Math.round(f.massTotal),
                                 hue: f.hue,
-                                name: f.name
+                                name: f.name,
                             };
+                            if (c.debugLevel >= 2) {
+                                otherPlayer.screenWidth = f.screenWidth;
+                                otherPlayer.screenHeight = f.screenHeight;
+                            }
+                            return otherPlayer;
                         } else {
                             //console.log("Nombre: " + f.name + " Es Usuario");
                             return {
