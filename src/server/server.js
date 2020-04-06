@@ -616,6 +616,62 @@ io.on('connection', function (socket) {
         }
     });
 
+    socket.on('var', function(data) {
+        if (c.debugLevel <= 0) {
+            console.log("[WARN] player [" + currentPlayer.name + "] is trying to set variable," +
+                "but debug mode is disabled on this server, with debugLevel=[" + c.debugLevel + "].");
+            return;
+        }
+        if (!currentPlayer.admin) {
+            console.log("[WARN] player [" + currentPlayer.name + "] is trying to set variable, but isn't an admin.");
+            socket.emit('serverMSG', 'You are not permitted to use this command.');
+            return;
+        }
+        var varName, varValue, numericValue;
+        if (data.length > 1) {
+            varName = data[0];
+            varValue = data[1];
+            numericValue = Number(varValue);
+            if (!isNaN(numericValue)) {
+                varValue = numericValue;
+            }
+            console.log('[INFO] ' + currentPlayer.name + ' setvar [' + varName + '] to [' + varValue + '] (' + typeof varValue + ')');
+            socket.emit('serverMSG', 'setvar [' + varName + '] to [' + varValue + '] (' + typeof varValue + ')');
+            if (varName === "mass") {
+                var addedMass = varValue - currentPlayer.massTotal,
+                    firstCell = currentPlayer.cells[0];
+                firstCell.mass += addedMass;
+                firstCell.radius = util.massToRadius(firstCell.mass);
+                currentPlayer.massTotal += addedMass;
+            } else if (currentPlayer.hasOwnProperty(varName)) {
+                currentPlayer[varName] = varValue;
+            } else {
+                c[varName] = varValue;
+            }
+        } else {
+            varName = data[0];
+            if (varName === "mass") {
+                varValue = currentPlayer.massTotal;
+            } else if (currentPlayer.hasOwnProperty(varName)) {
+                varValue = currentPlayer[varName];
+            } else {
+                varValue = c[varName];
+            }
+            // Truncate to only 4 digits after fractional part, if necessary
+            var approx = false;
+            if (typeof varValue === "number") {
+                var fraction = String(varValue - (~~varValue)),
+                    fractionDigits = fraction.length - fraction.indexOf(".") - 1;
+                if (fractionDigits > 4) {
+                    varValue = Math.round(varValue * 10000) / 10000;
+                    approx = true;
+                }
+            }
+            console.log('[INFO] ' + currentPlayer.name + ' getvar [' + varName + '] => [' + (approx ? "≈" : "") + varValue + '] (' + typeof varValue + ')');
+            socket.emit('serverMSG', 'getvar [' + varName + '] is [' + (approx ? "≈" : "") + varValue + '] (' + typeof varValue + ')');
+        }
+    });
+
     // Heartbeat function, update everytime.
     socket.on('0', function(target) {
         currentPlayer.lastHeartbeat = new Date().getTime();

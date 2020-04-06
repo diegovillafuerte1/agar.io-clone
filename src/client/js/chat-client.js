@@ -82,6 +82,9 @@ class ChatClient {
         this.registerCommand('kick', 'Kick a player, for admins only.', function (args) {
             self.socket.emit('kick', args);
         });
+        this.registerCommand('var', 'Get or set game variables, for admins only.', function (args) {
+            self.socket.emit('var', args);
+        });
         global.chatClient = this;
     }
 
