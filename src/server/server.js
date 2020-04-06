@@ -174,7 +174,7 @@ function movePlayer(player) {
                             cell.x += pushAway.x;
                             cell.y += pushAway.y;
                         }
-                        else if(distance < radiusTotal / 1.75 && cell.mass >= otherCell.mass) {
+                        else if (cell.mass >= otherCell.mass && distance < cell.radius - otherCell.radius * 0.7) {
                             // logDebug(3, "[TRACE] movePlayer(): about to merge other cell #[" + j + "] into cell #[" + i + "]");
                             player.cells[i].mass += player.cells[j].mass;
                             player.cells[i].radius = util.massToRadius(player.cells[i].mass);
@@ -701,10 +701,21 @@ function tickPlayer(currentPlayer) {
     }
 
     function collisionCheck(collision) {
-        if (collision.aUser.mass > collision.bUser.mass * 1.1  && collision.aUser.radius > Math.sqrt(Math.pow(collision.aUser.x - collision.bUser.x, 2) + Math.pow(collision.aUser.y - collision.bUser.y, 2))*1.75) {
-            console.log('[DEBUG] Killing user: ' + collision.bUser.id);
-            console.log('[DEBUG] Collision info:');
-            console.log(collision);
+        if (collision.aUser.mass < (collision.bUser.mass * 1.1)) {
+            return;
+        }
+        var distance = new V(collision.aUser.x - collision.bUser.x, collision.aUser.y - collision.bUser.y).len();
+        var radiusDifference = collision.aUser.radius - collision.bUser.radius * 0.7;
+        // logDebug(3, '[TRACE] candidate collision with user: [' + collision.bUser.id +
+        //     '], distance=' + distance +
+        //     ', collision.bUser.radius * 0.7 =' + (collision.bUser.radius * 0.7) +
+        //     ', radius_difference=' + radiusDifference +
+        //     ', bInA=' + collision.bInA);
+
+        if (collision.bInA || (distance < radiusDifference)) {
+            logDebug(1, '[DEBUG] Killing user: ' + collision.bUser.id);
+            logDebug(1, '[DEBUG] Collision info:');
+            logDebug(1, collision);
 
             var numUser = util.findIndex(users, collision.bUser.id);
             if (numUser > -1) {
