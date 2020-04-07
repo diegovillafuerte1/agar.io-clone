@@ -40,6 +40,12 @@ function startGame(type) {
 
     global.screenWidth = window.innerWidth;
     global.screenHeight = window.innerHeight;
+    if (global.playerType == 'spectate') {
+        player.x = global.gameWidth / 2;
+        player.y = global.gameHeight / 2;
+        player.viewWidth = global.gameWidth;
+        player.viewHeight = global.gameHeight;
+    }
 
     document.getElementById('startMenuWrapper').style.maxHeight = '0px';
     document.getElementById('gameAreaWrapper').style.opacity = 1;
@@ -445,12 +451,12 @@ function drawPlayers(order) {
             graph.strokeText(Math.round(cellCurrent.mass), circle.x, circle.y+fontSize);
             graph.fillText(Math.round(cellCurrent.mass), circle.x, circle.y+fontSize);
         }
-        if (global.playerType == 'spectate' && userCurrent.screenWidth && userCurrent.screenHeight) {
+        if (global.playerType == 'spectate' && userCurrent.viewWidth && userCurrent.viewHeight) {
             graph.lineWidth = playerConfig.border;
             graph.strokeStyle = 'hsl(' + userCurrent.hue + ', 100%, 40%)';
             graph.globalAlpha = 0.8;
-            graph.strokeRect(toCanvasCoordX(userCurrent.x - userCurrent.screenWidth/2), toCanvasCoordY(userCurrent.y - userCurrent.screenHeight/2),
-                             userCurrent.screenWidth, userCurrent.screenHeight);
+            graph.strokeRect(toCanvasCoordX(userCurrent.x - userCurrent.viewWidth/2), toCanvasCoordY(userCurrent.y - userCurrent.viewHeight/2),
+                             scaleToCanvas(userCurrent.viewWidth), scaleToCanvas(userCurrent.viewHeight));
             graph.globalAlpha = 1;
         }
     }
@@ -636,6 +642,8 @@ function resize() {
     if (global.playerType == 'spectate') {
         player.x = global.gameWidth / 2;
         player.y = global.gameHeight / 2;
+        player.viewWidth = global.gameWidth;
+        player.viewHeight = global.gameHeight;
     }
 
     socket.emit('windowResized', { screenWidth: global.screenWidth, screenHeight: global.screenHeight });

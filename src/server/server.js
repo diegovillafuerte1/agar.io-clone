@@ -116,6 +116,9 @@ function removeFood(toRem) {
 }
 
 function movePlayer(player) {
+    if (player.type === "spectate") {
+        return;
+    }
     for(var i=0; i<player.cells.length; i++)
     {
         var cell = player.cells[i];
@@ -525,9 +528,12 @@ io.on('connection', function (socket) {
                 }];
                 player.massTotal = c.defaultPlayerMass;
             }
-            else {
+            else { // spectator
                  player.cells = [];
                  player.massTotal = 0;
+                player.x = c.gameWidth / 2;
+                player.y = c.gameHeight / 2;
+                player.viewZoom = Math.max(c.gameWidth, c.gameHeight);
             }
             player.hue = Math.round(Math.random() * 360);
             currentPlayer = player;
@@ -980,8 +986,9 @@ function sendUpdates() {
                                 name: f.name,
                             };
                             if (c.debugLevel >= 2) {
-                                otherPlayer.screenWidth = f.screenWidth;
-                                otherPlayer.screenHeight = f.screenHeight;
+                                var largestDimension = Math.max(f.screenWidth, f.screenHeight);
+                                otherPlayer.viewWidth = Math.round(f.screenWidth * f.viewZoom / largestDimension);
+                                otherPlayer.viewHeight = Math.round(f.screenHeight * f.viewZoom / largestDimension);
                             }
                             return otherPlayer;
                         } else {
@@ -1005,7 +1012,7 @@ function sendUpdates() {
             })
             .filter(function(f) { return f; });
 
-        if (visibleCells.length <= 0) {
+        if (visibleCells.length <= 0 && u.type !== "spectate") {
             console.log("[ERROR] sendUpdates(): the visibleCells array is empty for user [" + u.name + "]");
         }
 
