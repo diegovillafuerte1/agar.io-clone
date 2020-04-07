@@ -265,7 +265,6 @@ function setupSocket(socket) {
             player.viewWidth = playerData.viewWidth;
             player.viewHeight = playerData.viewHeight;
             player.hue = playerData.hue;
-            player.massTotal = playerData.massTotal;
             player.cells = playerData.cells;
             player.xoffset = isNaN(xoffset) ? 0 : xoffset;
             player.yoffset = isNaN(yoffset) ? 0 : yoffset;

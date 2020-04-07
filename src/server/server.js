@@ -941,25 +941,44 @@ function gameloop() {
 }
 
 function sendUpdates() {
-    users.forEach( function(u) {
+
+    function sendUpdatesForUser(u) {
+
+        function minifyNum(num) {
+            return Math.round(num * 10) / 10;
+        }
 
         function collectVisibleFood(thing) {
             if (thing.id.charAt(0) === 'F') {
-                visibleFood.push(thing);
+                visibleFood.push({
+                    x: minifyNum(thing.x),
+                    y: minifyNum(thing.y),
+                    radius: minifyNum(thing.radius),
+                    hue: thing.hue
+                });
             }
             return true; // continue iterating the quadtree
         }
 
         function collectVisibleViruses(thing) {
             if (thing.id.charAt(0) === 'V') {
-                visibleVirus.push(thing);
+                visibleViruses.push({
+                    x: minifyNum(thing.x),
+                    y: minifyNum(thing.y),
+                    radius: minifyNum(thing.radius)
+                });
             }
             return true; // continue iterating the quadtree
         }
 
-        // center the view if x/y is undefined, this will happen for spectators
-        u.x = u.x || c.gameWidth / 2;
-        u.y = u.y || c.gameHeight / 2;
+        function minifyCell(c) {
+            return {
+                x: minifyNum(c.x),
+                y: minifyNum(c.y),
+                radius: minifyNum(c.radius),
+                mass: Math.round(c.mass)
+            };
+        }
 
         var largestDimension = Math.max(u.screenWidth, u.screenHeight),
             viewWidth = Math.round(u.screenWidth * u.viewZoom / largestDimension),
@@ -974,7 +993,7 @@ function sendUpdates() {
         var visibleFood = [];
         mainTree.get(viewArea, util.massToRadius(c.foodMass), collectVisibleFood);
 
-        var visibleVirus = [];
+        var visibleViruses = [];
         mainTree.get(viewArea, util.massToRadius(c.virus.splitMass), collectVisibleViruses);
 
         var visibleMass = massFood
@@ -983,7 +1002,13 @@ function sendUpdates() {
                     f.x-f.radius < u.x + viewWidth/2 + 20 &&
                     f.y+f.radius > u.y - viewHeight/2 - 20 &&
                     f.y-f.radius < u.y + viewHeight/2 + 20) {
-                    return f;
+                    return {
+                        x: minifyNum(f.x),
+                        y: minifyNum(f.y),
+                        radius: minifyNum(f.radius),
+                        mass: Math.round(f.mass),
+                        hue: f.hue
+                    };
                 }
             })
             .filter(function(f) { return f; });
@@ -1003,8 +1028,7 @@ function sendUpdates() {
                                 id: f.id,
                                 x: f.x,
                                 y: f.y,
-                                cells: f.cells,
-                                massTotal: Math.round(f.massTotal),
+                                cells: f.cells.map(minifyCell),
                                 hue: f.hue,
                                 name: f.name,
                             };
@@ -1017,10 +1041,9 @@ function sendUpdates() {
                         } else {
                             //console.log("Nombre: " + f.name + " Es Usuario");
                             return {
-                                x: f.x,
-                                y: f.y,
-                                cells: f.cells,
-                                massTotal: Math.round(f.massTotal),
+                                x: minifyNum(f.x),
+                                y: minifyNum(f.y),
+                                cells: f.cells.map(minifyCell),
                                 hue: f.hue,
                                 viewWidth: viewWidth,
                                 viewHeight: viewHeight
@@ -1039,14 +1062,15 @@ function sendUpdates() {
             console.log("[ERROR] sendUpdates(): the visibleCells array is empty for user [" + u.name + "]");
         }
 
-        sockets[u.id].emit('serverTellPlayerMove', visibleCells, visibleFood, visibleMass, visibleVirus);
+        sockets[u.id].emit('serverTellPlayerMove', visibleCells, visibleFood, visibleMass, visibleViruses);
         if (leaderboardChanged) {
             sockets[u.id].emit('leaderboard', {
                 players: users.length,
                 leaderboard: leaderboard
             });
         }
-    });
+    }
+    users.forEach(sendUpdatesForUser);
     leaderboardChanged = false;
 }
 
