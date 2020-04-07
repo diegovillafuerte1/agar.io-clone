@@ -390,6 +390,7 @@ function explodeCell(currentPlayer, cell, virus) {
                 cell.mass -= partsMass;
                 currentPlayer.cells.push({
                     id: currentPlayer.id,
+                    uniqId: 'C.' + shortid.generate(),
                     num: currentPlayer.cells.length,
                     mass: partsMass,
                     x: virus.x,
@@ -441,6 +442,7 @@ function doSplitCell(currentPlayer, cell, alternateSpeed, slowDownStep) {
         cell.radius = util.massToRadius(cell.mass);
         var newCell = {
             id: currentPlayer.id,
+            uniqId: 'C.' + shortid.generate(),
             num: currentPlayer.cells.length,
             mass: cell.mass,
             x: cell.x,
@@ -489,6 +491,7 @@ io.on('connection', function (socket) {
     if(type === 'player') {
         cells = [{
             id: socket.id,
+            uniqId: 'C.' + shortid.generate(),
             num: 0,
             mass: c.defaultPlayerMass,
             x: position.x,
@@ -541,6 +544,7 @@ io.on('connection', function (socket) {
             if(type === 'player') {
                 player.cells = [{
                     id: player.id,
+                    uniqId: 'C.' + shortid.generate(),
                     num: 0,
                     mass: c.defaultPlayerMass,
                     x: position.x,
@@ -765,13 +769,7 @@ io.on('connection', function (socket) {
     });
 });
 
-function tickPlayer(currentPlayer) {
-    if(currentPlayer.lastHeartbeat < new Date().getTime() - c.maxHeartbeatInterval) {
-        sockets[currentPlayer.id].emit('kick', 'Last heartbeat received over ' + c.maxHeartbeatInterval + 'ms ago.');
-        sockets[currentPlayer.id].disconnect();
-    }
-
-    movePlayer(currentPlayer);
+function treatCollisions(currentPlayer) {
 
     function eatFoodOrVirus(thing) {
         if (!SAT.pointInCircle(thing, cellCircle)) {
@@ -815,55 +813,55 @@ function tickPlayer(currentPlayer) {
         return false;
     }
 
-    function check(cell) {
-        if (cell.mass > 10 && cell.id !== currentPlayer.id) {
-            var response = new SAT.Response();
-            var collided = SAT.testCircleCircle(cellCircle,
-                new C(new V(cell.x, cell.y), cell.radius),
-                response);
-            if (collided) {
-                response.aUser = currentCell;
-                response.bUser = cell;
-                playerCollisions.push(response);
-            }
+    function collectEatenOtherCells(otherCell) {
+        if (otherCell.mass <= 10 || otherCell.id === currentPlayer.id) {
+            return true; // continue iterating in the quadtree
         }
+
+        // we check mass first because it's easy to compute
+        if (currentCell.mass < (otherCell.mass * 1.1)) {
+            return true; // continue iterating in the quadtree
+        }
+
+        var collision = new SAT.Response(),
+            collided = SAT.testCircleCircle(cellCircle, new C(otherCell, otherCell.radius), collision);
+        if (!collided) {
+            return true; // continue iterating in the quadtree
+        }
+
+        // A cell eats another when less than 30% of the other cell's radius is outside
+        if (!collision.bInA && collision.overlap <= otherCell.radius * 1.7) {
+            return true; // continue iterating in the quadtree
+        }
+        // logDebug(2, '[DEBUG] Cell collision info:');
+        // logDebug(2, collision);
+
+        eatenOtherCells.push(otherCell);
         return true; // continue iterating in the quadtree
     }
 
-    function collisionCheck(collision) {
-        if (collision.aUser.mass < (collision.bUser.mass * 1.1)) {
+    function eatOtherCell(otherCell) {
+        logDebug(1, '[DEBUG] Killing user: ' + otherCell.id);
+
+        var playerIdx = util.findIndex(users, otherCell.id);
+        if (playerIdx < 0) {
+            console.log("[ERROR] eatOtherCell(): can't find player ID [" + otherCell.id + "] while eating one of her/his cells. Aborting kill.");
             return;
         }
-        var distance = new V(collision.aUser.x - collision.bUser.x, collision.aUser.y - collision.bUser.y).len();
-        var radiusDifference = collision.aUser.radius - collision.bUser.radius * 0.7;
-        // logDebug(3, '[TRACE] candidate collision with user: [' + collision.bUser.id +
-        //     '], distance=' + distance +
-        //     ', collision.bUser.radius * 0.7 =' + (collision.bUser.radius * 0.7) +
-        //     ', radius_difference=' + radiusDifference +
-        //     ', bInA=' + collision.bInA);
-
-        if (collision.bInA || (distance < radiusDifference)) {
-            logDebug(1, '[DEBUG] Killing user: ' + collision.bUser.id);
-            logDebug(1, '[DEBUG] Collision info:');
-            logDebug(1, collision);
-
-            var numUser = util.findIndex(users, collision.bUser.id);
-            if (numUser > -1) {
-                if(users[numUser].cells.length > 1) {
-                    users[numUser].massTotal -= collision.bUser.mass;
-                    users[numUser].cells.splice(collision.bUser.num, 1);
-                    for (var idx = collision.bUser.num; idx < users[numUser].cells.length; idx++) {
-                        users[numUser].cells[idx].num = idx;
-                    }
-                } else {
-                    users.splice(numUser, 1);
-                    io.emit('playerDied', { name: collision.bUser.name });
-                    sockets[collision.bUser.id].emit('RIP');
-                }
+        if (users[playerIdx].cells.length > 1) {
+            users[playerIdx].massTotal -= otherCell.mass;
+            users[playerIdx].cells.splice(otherCell.num, 1);
+            for (var idx = otherCell.num; idx < users[playerIdx].cells.length; idx++) {
+                users[playerIdx].cells[idx].num = idx;
             }
-            currentPlayer.massTotal += collision.bUser.mass;
-            collision.aUser.mass += collision.bUser.mass;
+            tree.remove(otherCell, 'uniqId');
+        } else {
+            users.splice(playerIdx, 1);
+            io.emit('playerDied', { name: otherCell.name });
+            sockets[otherCell.id].emit('RIP');
         }
+        currentPlayer.massTotal += otherCell.mass;
+        currentCell.mass += otherCell.mass;
     }
 
     var virusHits = [];
@@ -896,15 +894,9 @@ function tickPlayer(currentPlayer) {
         currentCell.radius = util.massToRadius(currentCell.mass);
         cellCircle.r = currentCell.radius;
 
-        tree.clear();
-        for (var idx = 0; idx < users.length; idx++) {
-            users[idx].cells.forEach(tree.put);
-        }
-        var playerCollisions = [];
-
-        var otherCells = tree.get(cellBoundingBoxSearchArea, check);
-
-        playerCollisions.forEach(collisionCheck);
+        var eatenOtherCells = [];
+        tree.get(cellBoundingBoxSearchArea, collectEatenOtherCells);
+        eatenOtherCells.forEach(eatOtherCell);
     }
 
     function virusHitToExplosion(hit) {
@@ -916,8 +908,19 @@ function tickPlayer(currentPlayer) {
 function moveloop() {
     var duration = -new Date().getTime();
 
+    tree.clear();
+    for (var idx = 0; idx < users.length; idx += 1) {
+        if(users[idx].lastHeartbeat < new Date().getTime() - c.maxHeartbeatInterval) {
+            sockets[users[idx].id].emit('kick', 'Last heartbeat received over ' + c.maxHeartbeatInterval + 'ms ago.');
+            sockets[users[idx].id].disconnect();
+        }
+
+        movePlayer(users[idx]);
+        users[idx].cells.forEach(tree.put); // we put cells in quadtree after they have moved
+    }
+
     for (var i = 0; i < users.length; i++) {
-        tickPlayer(users[i]);
+        treatCollisions(users[i]);
     }
     for (i=0; i < massFood.length; i++) {
         if(massFood[i].speed > 0) moveMass(massFood[i]);
