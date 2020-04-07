@@ -26,8 +26,8 @@ var tree = QuadTree(0, 0, c.gameWidth, c.gameHeight, { maxchildren: 10 });
 var users = [];
 var massFood = [];
 var foodArray = [];
-var foodTree = QuadTree(0, 0, c.gameWidth, c.gameHeight, { maxchildren: 10 });
-var virus = [];
+var mainTree = QuadTree(0, 0, c.gameWidth, c.gameHeight, { maxchildren: 10 });
+var virusArray = [];
 var sockets = {};
 
 var leaderboard = [];
@@ -89,7 +89,7 @@ function addFood(toAdd) {
             hue: Math.round(Math.random() * 360)
         };
         foodArray.push(newFood);
-        foodTree.put(newFood);
+        mainTree.put(newFood);
     }
 }
 
@@ -97,21 +97,26 @@ function addVirus(toAdd) {
     while (toAdd--) {
         var mass = util.randomInRange(c.virus.defaultMass.from, c.virus.defaultMass.to, true);
         var radius = util.massToRadius(mass);
-        var position = c.virusUniformDisposition ? util.uniformPosition(virus, radius) : util.randomPosition(radius);
-        virus.push({
-            id: ((new Date()).getTime() + '' + virus.length) >>> 0,
+        var position = c.virusUniformDisposition ? util.uniformPosition(virusArray, radius) : util.randomPosition(radius);
+        var newVirus = {
+            id: 'V.' + shortid.generate(),
+            num: virusArray.length,
             x: position.x,
             y: position.y,
+            w: 0,
+            h: 0,
             radius: radius,
             mass: mass
-        });
+        };
+        virusArray.push(newVirus);
+        mainTree.put(newVirus);
     }
 }
 
 function removeFood(toRem) {
     while (toRem--) {
         var f = foodArray.pop();
-        foodTree.remove(f, 'id');
+        mainTree.remove(f, 'id');
     }
 }
 
@@ -317,7 +322,7 @@ function balanceMass() {
         // logDebug(2, '[DEBUG] Mass rebalanced!');
     }
 
-    var virusToAdd = c.maxVirus - virus.length;
+    var virusToAdd = c.maxVirus - virusArray.length;
 
     if (virusToAdd > 0) {
         addVirus(virusToAdd);
@@ -746,19 +751,36 @@ function tickPlayer(currentPlayer) {
 
     movePlayer(currentPlayer);
 
-    function eatFood(food) {
-        if (SAT.pointInCircle(food, cellCircle)) {
-            foodArray.splice(food.num, 1);
-            for (var idx = food.num; idx < foodArray.length; idx += 1) {
-                foodArray[idx].num = idx;
-            }
-            foodTree.remove(food, 'id');
-            masaGanada += c.foodMass;
+    function eatFoodOrVirus(thing) {
+        if (!SAT.pointInCircle(thing, cellCircle)) {
+            return;
         }
-    }
-
-    function funcFood(f) {
-        return SAT.pointInCircle(new V(f.x, f.y), cellCircle);
+        var type = thing.id.charAt(0),
+            idx;
+        switch (type) {
+            case "F":
+                var food = thing;
+                foodArray.splice(food.num, 1);
+                for (idx = food.num; idx < foodArray.length; idx += 1) {
+                    foodArray[idx].num = idx;
+                }
+                mainTree.remove(food, 'id');
+                masaGanada += c.foodMass;
+                break;
+            case "V":
+                var virus = thing;
+                if (currentCell.mass <= virus.mass) {
+                    break;
+                }
+                virusArray.splice(virus.num, 1);
+                for (idx = virus.num; idx < virusArray.length; idx += 1) {
+                    virusArray[idx].num = idx;
+                }
+                mainTree.remove(virus, 'id');
+                virusHits.push({ cell: currentCell, virus: virus });
+                masaGanada += virus.mass;
+                break;
+        }
     }
 
     function eatMass(m) {
@@ -822,6 +844,7 @@ function tickPlayer(currentPlayer) {
         }
     }
 
+    var virusHits = [];
     for(var z=0; z<currentPlayer.cells.length; z++) {
         var currentCell = currentPlayer.cells[z],
             cellCenter = new V().copy(currentCell),
@@ -829,23 +852,10 @@ function tickPlayer(currentPlayer) {
 
         var masaGanada = 0,
             cellBoundingBoxSearchArea = cellCircle.boundingBoxAsSearchArea();
-        foodTree.get(cellBoundingBoxSearchArea).forEach(eatFood);
+        mainTree.get(cellBoundingBoxSearchArea).forEach(eatFoodOrVirus);
 
         var massEaten = massFood.map(eatMass)
             .reduce(function(a, b, c) {return b ? a.concat(c) : a; }, []);
-
-        var virusCollision = virus.map(funcFood)
-           .reduce( function(a, b, c) { return b ? a.concat(c) : a; }, []);
-
-        if(virusCollision > 0 && currentCell.mass > virus[virusCollision].mass) {
-            currentCell.mass += virus[virusCollision].mass / 4;
-            currentPlayer.massTotal += virus[virusCollision].mass / 4;
-            currentCell.radius = util.massToRadius(currentCell.mass);
-            cellCircle.r = currentCell.radius;
-
-          explodeCell(currentPlayer, currentPlayer.cells[z], virus[virusCollision]);
-          virus.splice(virusCollision, 1);
-        }
 
         for(var m=0; m<massEaten.length; m++) {
             masaGanada += massFood[massEaten[m]].masa;
@@ -874,6 +884,11 @@ function tickPlayer(currentPlayer) {
 
         playerCollisions.forEach(collisionCheck);
     }
+
+    function virusHitToExplosion(hit) {
+        explodeCell(currentPlayer, hit.cell, hit.virus);
+    }
+    virusHits.forEach(virusHitToExplosion);
 }
 
 function moveloop() {
@@ -927,32 +942,40 @@ function gameloop() {
 
 function sendUpdates() {
     users.forEach( function(u) {
+
+        function collectVisibleFood(thing) {
+            if (thing.id.charAt(0) === 'F') {
+                visibleFood.push(thing);
+            }
+            return true; // continue iterating the quadtree
+        }
+
+        function collectVisibleViruses(thing) {
+            if (thing.id.charAt(0) === 'V') {
+                visibleVirus.push(thing);
+            }
+            return true; // continue iterating the quadtree
+        }
+
         // center the view if x/y is undefined, this will happen for spectators
         u.x = u.x || c.gameWidth / 2;
         u.y = u.y || c.gameHeight / 2;
 
         var largestDimension = Math.max(u.screenWidth, u.screenHeight),
             viewWidth = Math.round(u.screenWidth * u.viewZoom / largestDimension),
-            viewHeight = Math.round(u.screenHeight * u.viewZoom / largestDimension);
+            viewHeight = Math.round(u.screenHeight * u.viewZoom / largestDimension),
+            viewArea = {
+                x: u.x - viewWidth/2,
+                y: u.y - viewHeight/2,
+                w: viewWidth,
+                h: viewHeight
+            };
 
-        var viewArea = {
-            x: u.x - viewWidth/2,
-            y: u.y - viewHeight/2,
-            w: viewWidth,
-            h: viewHeight
-        };
-        var visibleFood = foodTree.get(viewArea, 20, []);
+        var visibleFood = [];
+        mainTree.get(viewArea, util.massToRadius(c.foodMass), collectVisibleFood);
 
-        var visibleVirus  = virus
-            .map(function(f) {
-                if ( f.x > u.x - viewWidth/2 - f.radius &&
-                    f.x < u.x + viewWidth/2 + f.radius &&
-                    f.y > u.y - viewHeight/2 - f.radius &&
-                    f.y < u.y + viewHeight/2 + f.radius) {
-                    return f;
-                }
-            })
-            .filter(function(f) { return f; });
+        var visibleVirus = [];
+        mainTree.get(viewArea, util.massToRadius(c.virus.splitMass), collectVisibleViruses);
 
         var visibleMass = massFood
             .map(function(f) {
