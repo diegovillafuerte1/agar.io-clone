@@ -114,7 +114,7 @@ function addVirus(toAdd) {
 }
 
 function removeFood(toRem) {
-    while (toRem--) {
+    while (toRem-- && foodArray.length > 0) {
         var f = foodArray.pop();
         mainTree.remove(f, 'id');
     }
@@ -300,16 +300,21 @@ function moveMass(mass) {
 }
 
 function balanceMass() {
-    var totalMass = foodArray.length * c.foodMass +
+    var allocatedTotalMass = foodArray.length * c.foodMass +
         users
             .map(function(u) {return u.massTotal; })
-            .reduce(function(pu,cu) { return pu+cu;}, 0);
+            .reduce(function(pu,cu) { return pu+cu;}, 0) +
+        massFood
+            .map(function(m) { return m.masa; })
+            .reduce(function(pm, cm) { return pm + cm;}, 0) +
+        virusArray
+            .map(function(v) { return v.mass / 4; })
+            .reduce(function(pv, cv) { return pv + cv;}, 0);
 
-    var massDiff = c.gameMass - totalMass;
-    var maxFoodDiff = c.maxFood - foodArray.length;
-    var foodDiff = parseInt(massDiff / c.foodMass) - maxFoodDiff;
-    var foodToAdd = Math.min(foodDiff, maxFoodDiff);
-    var foodToRemove = -Math.max(foodDiff, maxFoodDiff);
+    var missingFoodSlots = c.maxFood - foodArray.length;
+    var availableFoodSlots = Math.floor((c.gameMass - allocatedTotalMass) / c.foodMass);
+    var foodToAdd = Math.min(availableFoodSlots, missingFoodSlots);
+    var foodToRemove = Math.max(0, -availableFoodSlots, -missingFoodSlots);
 
     if (foodToAdd > 0) {
         // logDebug(2, '[DEBUG] Adding ' + foodToAdd + ' food to level!');
