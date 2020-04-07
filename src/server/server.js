@@ -33,6 +33,21 @@ var sockets = {};
 var leaderboard = [];
 var leaderboardChanged = false;
 
+var profiling = {
+    // gameloop: {
+    //     serie: [ 0 ],
+    //     distrib: []
+    // },
+    moveloop: {
+        serie: [ 0 ],
+        distrib: []
+    },
+    sendUpdates: {
+        serie: [ 0 ],
+        distrib: []
+    }
+};
+
 var V = SAT.Vector;
 var C = SAT.Circle;
 
@@ -667,6 +682,8 @@ io.on('connection', function (socket) {
             numericValue = Number(varValue);
             if (!isNaN(numericValue)) {
                 varValue = numericValue;
+            } else if (varValue === "true" || varValue === "false") {
+                varValue = varValue === "true" ? true : false;
             }
             console.log('[INFO] ' + currentPlayer.name + ' setvar [' + varName + '] to [' + varValue + '] (' + typeof varValue + ')');
             socket.emit('serverMSG', 'setvar [' + varName + '] to [' + varValue + '] (' + typeof varValue + ')');
@@ -897,15 +914,119 @@ function tickPlayer(currentPlayer) {
 }
 
 function moveloop() {
+    var duration = -new Date().getTime();
+
     for (var i = 0; i < users.length; i++) {
         tickPlayer(users[i]);
     }
     for (i=0; i < massFood.length; i++) {
         if(massFood[i].speed > 0) moveMass(massFood[i]);
     }
+
+    duration += new Date().getTime();
+    profilingAccumulateValue("moveloop", duration);
+}
+
+function profilingAccumulateValue(name, value) {
+    if (!c.profiling) {
+        return;
+    }
+    profiling[name].serie[0] += value;
+}
+
+function padded(chars, val) {
+    var str = String(val);
+    return Array(Math.max(0, chars - str.length) + 1).join(" ") + str;
+}
+
+function printFigure(num) {
+    return padded(4, num);
+}
+
+function rotateProfiling(name) {
+    function sum(accu, curVal) {
+        return accu + curVal;
+    }
+    function sumDistanceToMedianSq(accu, curVal) {
+        var dist = curVal - median;
+        return accu + dist * dist;
+    }
+
+    if (!c.profilingSeries || !c.profiling) {
+        return;
+    }
+
+    var serie = profiling[name].serie,
+        median = Math.round((serie.reduce(sum, 0) / serie.length) * 10) / 10,
+        stdDev = Math.round(Math.sqrt(serie.reduce(sumDistanceToMedianSq, 0) / serie.length) * 10) / 10;
+    logDebug(1, "[PROFILING] " + padded(11, name) + ": " +
+        "med:" + padded(5, median) + ", stdDev:" + padded(5, stdDev) + ", " +
+        "[ " + serie.map(printFigure).join(",") + " ]");
+
+    var distrib = profiling[name].distrib,
+        roundedVal = Math.round(serie[0]);
+    if (!distrib[roundedVal]) {
+        distrib[roundedVal] = 1;
+    } else {
+        distrib[roundedVal] += 1;
+    }
+
+    serie.unshift(0);
+    if (serie.length > c.profilingSerieMaxLength) {
+        serie.pop();
+    }
+}
+
+function printDistribution(name) {
+    if (!c.profilingDistribs || !c.profiling) {
+        return;
+    }
+
+    var distrib = profiling[name].distrib;
+    if (!distrib.count) {
+        distrib.count = 1;
+    } else {
+        distrib.count += 1;
+    }
+    if (users.length <= 0 || distrib.count < c.profilingDistribCollectSec) {
+        return;
+    }
+
+    var idx;
+    for (idx = 0; idx < distrib.length; idx += 1) {
+        if (!distrib[idx]) {
+            distrib[idx] = 0;
+        }
+        // logDebug(3, "[TRACE] printDistribution(): idx=" + idx + ", distrib[idx]=" + distrib[idx] + ", ");
+    }
+    var ninethDecile = distrib.length - 1,
+        accu = 0;
+    while (ninethDecile >= 0 && accu + distrib[ninethDecile] < distrib.count / 10) {
+        // logDebug(3, "[TRACE] printDistribution(): accu=" + accu + ", ninethDecile=" + ninethDecile + ", distrib[ninethDecile]=" + distrib[ninethDecile] + ", ");
+        accu += distrib[ninethDecile];
+        ninethDecile -= 1;
+    }
+    // NOTE: distrib.join() often doesn't join all array elements, ignoring a
+    // large part of them, and we didn't find the reason why. Thus we revert
+    // to a plain old manual join instead.
+    var distribAsTabSeparatedValues = "";
+    if (distrib.length > 0) {
+        distribAsTabSeparatedValues += String(distrib[0]);
+    }
+    for (idx = 1; idx < distrib.length; idx += 1) {
+        distribAsTabSeparatedValues += "\t" + distrib[idx];
+    }
+    logDebug(1, "[PROFILING] " + padded(11, name) + ": " +
+        "count=" + distrib.count + ", ninethDecile=" + ninethDecile + ", length=" + distrib.length + ", " +
+        "[" + distribAsTabSeparatedValues + "]");
+
+    profiling[name].distrib = [];
+    profiling[name].distrib.count = 0;
 }
 
 function gameloop() {
+    // var duration = -new Date().getTime();
+
     if (users.length > 0) {
         users.sort( function(a, b) { return b.massTotal - a.massTotal; });
 
@@ -943,6 +1064,17 @@ function gameloop() {
         }
     }
     balanceMass();
+
+    // duration += new Date().getTime();
+    // profilingAccumulateValue("gameloop", duration);
+
+    // rotateProfiling("gameloop");
+    rotateProfiling("moveloop");
+    // rotateProfiling("sendUpdates");
+
+    // printDistribution("gameloop");
+    printDistribution("moveloop");
+    // printDistribution("sendUpdates");
 }
 
 function sendUpdates() {
@@ -1077,6 +1209,9 @@ function sendUpdates() {
     }
     users.forEach(sendUpdatesForUser);
     leaderboardChanged = false;
+
+    // duration += new Date().getTime();
+    // profilingAccumulateValue("sendUpdates", duration);
 }
 
 setInterval(moveloop, 1000 / 60);

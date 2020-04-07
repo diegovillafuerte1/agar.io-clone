@@ -41,4 +41,10 @@
       "database": "DEFAULT",
       "debug": false
     }
+    ,
+    "profiling": false,
+    "profilingSeries": true,
+    "profilingDistribs": true,
+    "profilingDistribCollectSec": 150,
+    "profilingSerieMaxLength": 30
 }
