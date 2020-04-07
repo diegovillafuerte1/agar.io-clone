@@ -68,7 +68,7 @@ app.use(express.static(__dirname + '/../client'));
 
 function logDebug(level, anything) {
     if (c.debugLevel >= level) {
-        var anyArgs = Array.prototype.slice(1, arguments);
+        var anyArgs = Array.prototype.slice.call(arguments, 1);
         console.log.apply(console, anyArgs);
     }
 }
