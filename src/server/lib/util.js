@@ -3,6 +3,7 @@
 'use strict';
 
 var cfg = require('../../../config.json');
+var SAT = require('sat');
 
 exports.validNick = function(nickname) {
     var regex = /^\w*$/;
@@ -41,31 +42,30 @@ exports.randomPosition = function (radius) {
 };
 
 exports.uniformPosition = function(points, radius) {
-    var bestCandidate, maxDistance = 0;
+    var bestCandidate, bestCandidateDistSq = 0;
     var numberOfCandidates = 10;
+
+    function selectClosest(point) {
+        var distSq = candidate.clone().sub(point).len2();
+        if (distSq < minDistanceSq) {
+            minDistanceSq = distSq;
+        }
+    }
 
     if (points.length === 0) {
         return exports.randomPosition(radius);
     }
 
     // Generate the candidates
-    for (var ci = 0; ci < numberOfCandidates; ci++) {
-        var minDistance = Infinity;
-        var candidate = exports.randomPosition(radius);
-        candidate.radius = radius;
+    while (--numberOfCandidates >= 0) {
+        var minDistanceSq = Number.MAX_VALUE;
+        var candidate = new SAT.Vector().copy(exports.randomPosition(radius));
 
-        for (var pi = 0; pi < points.length; pi++) {
-            var distance = exports.getDistance(candidate, points[pi]);
-            if (distance < minDistance) {
-                minDistance = distance;
-            }
-        }
+        points.forEach(selectClosest);
 
-        if (minDistance > maxDistance) {
+        if (minDistanceSq > bestCandidateDistSq) {
             bestCandidate = candidate;
-            maxDistance = minDistance;
-        } else {
-            return exports.randomPosition(radius);
+            bestCandidateDistSq = minDistanceSq;
         }
     }
 
