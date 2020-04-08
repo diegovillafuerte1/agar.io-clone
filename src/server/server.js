@@ -110,7 +110,7 @@ function addFood(toAdd) {
 
 function addVirus(toAdd) {
     while (toAdd--) {
-        var mass = util.randomInRange(c.virus.defaultMass.from, c.virus.defaultMass.to, true);
+        var mass = util.randomInRange(c.virus.defaultMass.from, c.virus.defaultMass.to);
         var radius = util.massToRadius(mass);
         var position = c.virusUniformDisposition ? util.uniformPosition(virusArray, radius) : util.randomPosition(radius);
         var newVirus = {
