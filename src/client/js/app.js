@@ -141,6 +141,7 @@ var foods = [];
 var viruses = [];
 var fireFood = [];
 var users = [];
+var orderedCellsAndViruses = [];
 var leaderboard = [];
 var target = {x: player.x, y: player.y};
 global.target = target;
@@ -273,6 +274,24 @@ function setupSocket(socket) {
         foods = foodsList;
         viruses = virusList;
         fireFood = massList;
+        orderedCellsAndViruses = [];
+
+        function setTypeInAllCells(player, idx) {
+
+            function setCellType(cell) {
+                cell.type = 'C';
+                cell.playerNum = idx;
+            }
+
+            player.cells.forEach(setCellType);
+        }
+
+        function setVirusType(virus) {
+            virus.type = 'V';
+        }
+
+        users.forEach(setTypeInAllCells);
+        viruses.forEach(setVirusType);
     });
 
     // Death.
@@ -365,99 +384,93 @@ function drawFireFood(mass) {
                scaleToCanvas(mass.radius-5), 18 + (~~(mass.masa/5)));
 }
 
-function drawPlayers(order) {
-    for(var z=0; z<order.length; z++)
-    {
-        var userCurrent = users[order[z].nCell];
-        var cellCurrent = users[order[z].nCell].cells[order[z].nDiv];
+function drawCell(userCurrent, cellCurrent) {
+    var x=0;
+    var y=0;
 
-        var x=0;
-        var y=0;
+    var points = 30 + ~~(cellCurrent.mass/5);
+    var increase = Math.PI * 2 / points;
 
-        var points = 30 + ~~(cellCurrent.mass/5);
-        var increase = Math.PI * 2 / points;
+    graph.strokeStyle = 'hsl(' + userCurrent.hue + ', 100%, 45%)';
+    graph.fillStyle = 'hsl(' + userCurrent.hue + ', 100%, 50%)';
+    graph.lineWidth = playerConfig.border;
 
-        graph.strokeStyle = 'hsl(' + userCurrent.hue + ', 100%, 45%)';
-        graph.fillStyle = 'hsl(' + userCurrent.hue + ', 100%, 50%)';
-        graph.lineWidth = playerConfig.border;
+    var xstore = [];
+    var ystore = [];
 
-        var xstore = [];
-        var ystore = [];
+    global.spin += 0.0;
 
-        global.spin += 0.0;
+    var circle = {
+        x: toCanvasCoordX(cellCurrent.x),
+        y: toCanvasCoordY(cellCurrent.y)
+    };
 
-        var circle = {
-            x: toCanvasCoordX(cellCurrent.x),
-            y: toCanvasCoordY(cellCurrent.y)
-        };
+    for (var i = 0; i < points; i++) {
 
-        for (var i = 0; i < points; i++) {
+        x = scaleToCanvas(cellCurrent.radius) * Math.cos(global.spin) + circle.x;
+        y = scaleToCanvas(cellCurrent.radius) * Math.sin(global.spin) + circle.y;
 
-            x = scaleToCanvas(cellCurrent.radius) * Math.cos(global.spin) + circle.x;
-            y = scaleToCanvas(cellCurrent.radius) * Math.sin(global.spin) + circle.y;
+        x = valueInRange(toCanvasCoordX(0), toCanvasCoordX(global.gameWidth), x);
+        y = valueInRange(toCanvasCoordY(0), toCanvasCoordY(global.gameHeight), y);
 
-            x = valueInRange(toCanvasCoordX(0), toCanvasCoordX(global.gameWidth), x);
-            y = valueInRange(toCanvasCoordY(0), toCanvasCoordY(global.gameHeight), y);
-
-            global.spin += increase;
-            xstore[i] = x;
-            ystore[i] = y;
-        }
-        /*if (wiggle >= player.radius/ 3) inc = -1;
-        *if (wiggle <= player.radius / -3) inc = +1;
-        *wiggle += inc;
-        */
-        for (i = 0; i < points; ++i) {
-            if (i === 0) {
-                graph.beginPath();
-                graph.moveTo(xstore[i], ystore[i]);
-            } else if (i > 0 && i < points - 1) {
-                graph.lineTo(xstore[i], ystore[i]);
-            } else {
-                graph.lineTo(xstore[i], ystore[i]);
-                graph.lineTo(xstore[0], ystore[0]);
-            }
-
-        }
-        graph.lineJoin = 'round';
-        graph.lineCap = 'round';
-        graph.fill();
-        graph.stroke();
-        var nameCell = "";
-        if(typeof(userCurrent.id) == "undefined")
-            nameCell = player.name;
-        else
-            nameCell = userCurrent.name;
-
-        var fontSize = Math.max(scaleToCanvas(cellCurrent.radius) / 3, 12);
-        graph.lineWidth = playerConfig.textBorderSize;
-        graph.fillStyle = playerConfig.textColor;
-        graph.strokeStyle = playerConfig.textBorder;
-        graph.miterLimit = 1;
-        graph.lineJoin = 'round';
-        graph.textAlign = 'center';
-        graph.textBaseline = 'middle';
-        graph.font = 'bold ' + fontSize + 'px sans-serif';
-
-        if (global.toggleMassState === 0) {
-            graph.strokeText(nameCell, circle.x, circle.y);
-            graph.fillText(nameCell, circle.x, circle.y);
+        global.spin += increase;
+        xstore[i] = x;
+        ystore[i] = y;
+    }
+    /*if (wiggle >= player.radius/ 3) inc = -1;
+    *if (wiggle <= player.radius / -3) inc = +1;
+    *wiggle += inc;
+    */
+    for (i = 0; i < points; ++i) {
+        if (i === 0) {
+            graph.beginPath();
+            graph.moveTo(xstore[i], ystore[i]);
+        } else if (i > 0 && i < points - 1) {
+            graph.lineTo(xstore[i], ystore[i]);
         } else {
-            graph.strokeText(nameCell, circle.x, circle.y);
-            graph.fillText(nameCell, circle.x, circle.y);
-            graph.font = 'bold ' + Math.max(fontSize / 3 * 2, 10) + 'px sans-serif';
-            if(nameCell.length === 0) fontSize = 0;
-            graph.strokeText(Math.round(cellCurrent.mass), circle.x, circle.y+fontSize);
-            graph.fillText(Math.round(cellCurrent.mass), circle.x, circle.y+fontSize);
+            graph.lineTo(xstore[i], ystore[i]);
+            graph.lineTo(xstore[0], ystore[0]);
         }
-        if (global.playerType == 'spectate' && userCurrent.viewWidth && userCurrent.viewHeight) {
-            graph.lineWidth = playerConfig.border;
-            graph.strokeStyle = 'hsl(' + userCurrent.hue + ', 100%, 40%)';
-            graph.globalAlpha = 0.8;
-            graph.strokeRect(toCanvasCoordX(userCurrent.x - userCurrent.viewWidth/2), toCanvasCoordY(userCurrent.y - userCurrent.viewHeight/2),
-                             scaleToCanvas(userCurrent.viewWidth), scaleToCanvas(userCurrent.viewHeight));
-            graph.globalAlpha = 1;
-        }
+
+    }
+    graph.lineJoin = 'round';
+    graph.lineCap = 'round';
+    graph.fill();
+    graph.stroke();
+    var nameCell = "";
+    if(typeof(userCurrent.id) == "undefined")
+        nameCell = player.name;
+    else
+        nameCell = userCurrent.name;
+
+    var fontSize = Math.max(scaleToCanvas(cellCurrent.radius) / 3, 12);
+    graph.lineWidth = playerConfig.textBorderSize;
+    graph.fillStyle = playerConfig.textColor;
+    graph.strokeStyle = playerConfig.textBorder;
+    graph.miterLimit = 1;
+    graph.lineJoin = 'round';
+    graph.textAlign = 'center';
+    graph.textBaseline = 'middle';
+    graph.font = 'bold ' + fontSize + 'px sans-serif';
+
+    if (global.toggleMassState === 0) {
+        graph.strokeText(nameCell, circle.x, circle.y);
+        graph.fillText(nameCell, circle.x, circle.y);
+    } else {
+        graph.strokeText(nameCell, circle.x, circle.y);
+        graph.fillText(nameCell, circle.x, circle.y);
+        graph.font = 'bold ' + Math.max(fontSize / 3 * 2, 10) + 'px sans-serif';
+        if(nameCell.length === 0) fontSize = 0;
+        graph.strokeText(Math.round(cellCurrent.mass), circle.x, circle.y+fontSize);
+        graph.fillText(Math.round(cellCurrent.mass), circle.x, circle.y+fontSize);
+    }
+    if (global.playerType == 'spectate' && userCurrent.viewWidth && userCurrent.viewHeight) {
+        graph.lineWidth = playerConfig.border;
+        graph.strokeStyle = 'hsl(' + userCurrent.hue + ', 100%, 40%)';
+        graph.globalAlpha = 0.8;
+        graph.strokeRect(toCanvasCoordX(userCurrent.x - userCurrent.viewWidth/2), toCanvasCoordY(userCurrent.y - userCurrent.viewHeight/2),
+                         scaleToCanvas(userCurrent.viewWidth), scaleToCanvas(userCurrent.viewHeight));
+        graph.globalAlpha = 1;
     }
 }
 
@@ -560,6 +573,11 @@ function animloop() {
 }
 
 function gameLoop() {
+
+    function orderByMassAsc(obj1, obj2) {
+        return obj1.mass - obj2.mass;
+    }
+
     if (global.died) {
         graph.fillStyle = '#333333';
         graph.fillRect(0, 0, global.screenWidth, global.screenHeight);
@@ -577,26 +595,28 @@ function gameLoop() {
             drawgrid();
             foods.forEach(drawFood);
             fireFood.forEach(drawFireFood);
-            viruses.forEach(drawVirus);
 
             if (global.borderDraw) {
                 drawborder();
             }
-            var orderMass = [];
-            for(var i=0; i<users.length; i++) {
-                for(var j=0; j<users[i].cells.length; j++) {
-                    orderMass.push({
-                        nCell: i,
-                        nDiv: j,
-                        mass: users[i].cells[j].mass
-                    });
+
+            if (orderedCellsAndViruses.length <= 0) {
+                // build the sorted array if not already done
+                orderedCellsAndViruses = orderedCellsAndViruses.concat(viruses);
+                for(var i=0; i<users.length; i++) {
+                    orderedCellsAndViruses = orderedCellsAndViruses.concat(users[i].cells);
+                }
+                orderedCellsAndViruses.sort(orderByMassAsc);
+            }
+
+            for (var z = 0; z < orderedCellsAndViruses.length; z++) {
+                var thing = orderedCellsAndViruses[z];
+                if (thing.type === 'C') {
+                    drawCell(users[thing.playerNum], thing);
+                } else if (thing.type === 'V') {
+                    drawVirus(thing);
                 }
             }
-            orderMass.sort(function(obj1, obj2) {
-                return obj1.mass - obj2.mass;
-            });
-
-            drawPlayers(orderMass);
             socket.emit('0', window.canvas.target); // playerSendTarget "Heartbeat".
 
         } else {

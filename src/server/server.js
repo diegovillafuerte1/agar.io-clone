@@ -1102,21 +1102,17 @@ function sendUpdates() {
 
         function collectVisibleViruses(thing) {
             if (thing.id.charAt(0) === 'V') {
-                visibleViruses.push({
-                    x: minifyNum(thing.x),
-                    y: minifyNum(thing.y),
-                    radius: minifyNum(thing.radius)
-                });
+                visibleViruses.push(minifyCellOrVirus(thing));
             }
             return true; // continue iterating the quadtree
         }
 
-        function minifyCell(c) {
+        function minifyCellOrVirus(thing) {
             return {
-                x: minifyNum(c.x),
-                y: minifyNum(c.y),
-                radius: minifyNum(c.radius),
-                mass: Math.round(c.mass)
+                x: minifyNum(thing.x),
+                y: minifyNum(thing.y),
+                radius: minifyNum(thing.radius),
+                mass: Math.round(thing.mass)
             };
         }
 
@@ -1168,7 +1164,7 @@ function sendUpdates() {
                                 id: f.id,
                                 x: f.x,
                                 y: f.y,
-                                cells: f.cells.map(minifyCell),
+                                cells: f.cells.map(minifyCellOrVirus),
                                 hue: f.hue,
                                 name: f.name,
                             };
@@ -1183,7 +1179,7 @@ function sendUpdates() {
                             return {
                                 x: minifyNum(f.x),
                                 y: minifyNum(f.y),
-                                cells: f.cells.map(minifyCell),
+                                cells: f.cells.map(minifyCellOrVirus),
                                 hue: f.hue,
                                 viewWidth: viewWidth,
                                 viewHeight: viewHeight
