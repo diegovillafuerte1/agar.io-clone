@@ -91,7 +91,7 @@ function logDebug(level, anything) {
 function addFood(toAdd) {
     var radius = util.massToRadius(c.foodMass);
     while (toAdd--) {
-        var position = c.foodUniformDisposition ? util.uniformPosition(foodArray, radius) : util.randomPosition(radius);
+        var position = util.uniformPosition(foodArray, radius, c.foodPlacementUniformityLevel);
         var newFood = {
             id: 'F.' + shortid.generate(),
             num: foodArray.length,
@@ -100,7 +100,6 @@ function addFood(toAdd) {
             w: 0,
             h: 0,
             radius: radius,
-            mass: Math.random() + 2,
             hue: Math.round(Math.random() * 360)
         };
         foodArray.push(newFood);
@@ -112,7 +111,7 @@ function addVirus(toAdd) {
     while (toAdd--) {
         var mass = util.randomInRange(c.virus.defaultMass.from, c.virus.defaultMass.to);
         var radius = util.massToRadius(mass);
-        var position = c.virusUniformDisposition ? util.uniformPosition(virusArray, radius) : util.randomPosition(radius);
+        var position = util.uniformPosition(virusArray, radius, c.virusPlacementUniformityLevel);
         var newVirus = {
             id: 'V.' + shortid.generate(),
             num: virusArray.length,
