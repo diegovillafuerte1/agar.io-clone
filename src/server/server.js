@@ -110,10 +110,11 @@ function addFood(toAdd) {
 function addVirus(maxCellRadius) {
 
     function anyoneNotAccepted(cell) {
-        var cellCircle = new C(cell, cell.radius);
-        if (SAT.testCircleCircle(cellCircle, virusCircle)) {
-            accepted = false;
-            return false;
+        var cellCircle = new C(cell, cell.radius),
+            collision = new SAT.Response();
+        if (SAT.testCircleCircle(cellCircle, virusCircle, collision)) {
+            var dist = cellCircle.r + virusCircle.r - collision.overlap;
+            virusCircle.minDistance = Math.min(dist, virusCircle.minDistance);
         }
         return true; // continue iterating the quadtre search results
     }
@@ -121,21 +122,27 @@ function addVirus(maxCellRadius) {
     var mass = util.randomInRange(c.virus.defaultMass.from, c.virus.defaultMass.to),
         radius = util.massToRadius(mass);
 
-    var attempts = 10,
-        position, virusCircle, accepted;
+    var keepAwayPoints = Array.prototype.concat.apply(virusArray, users.map(function (u) { return u.cells; })),
+        attempts = 10,
+        position, virusCircle,
+        largestMinDistance = 0,
+        bestPosition;
 
     do {
-        position = util.uniformPosition(virusArray, radius, c.virusPlacementUniformityLevel);
+        position = util.uniformPosition(keepAwayPoints, radius, c.virusPlacementUniformityLevel);
         virusCircle = new C(position, radius);
-        accepted = true; // to be set to false during quadtree search
+        virusCircle.minDistance = Number.MAX_VALUE;
         tree.get(virusCircle.boundingBoxAsSearchArea(), maxCellRadius, anyoneNotAccepted);
-    } while (!accepted && --attempts > 0);
+        if (virusCircle.minDistance > largestMinDistance) {
+            bestPosition = position;
+        }
+    } while (--attempts > 0);
 
     var newVirus = {
         id: 'V.' + shortid.generate(),
         num: virusArray.length,
-        x: position.x,
-        y: position.y,
+        x: bestPosition.x,
+        y: bestPosition.y,
         w: 0,
         h: 0,
         radius: radius,

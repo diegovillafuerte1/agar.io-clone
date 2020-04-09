@@ -27,7 +27,7 @@
     "logChat": 0,
     "networkUpdateFactor": 40,
     "maxHeartbeatInterval": 5000,
-    "foodPlacementUniformityLevel": 2,
+    "foodPlacementUniformityLevel": 1,
     "virusPlacementUniformityLevel": 3,
     "newPlayerInitialPosition": "farthest",
     "massLossRate": 1,
