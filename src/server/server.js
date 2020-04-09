@@ -1120,11 +1120,20 @@ function gameloop() {
 
 function sendUpdates() {
 
-    function sendUpdatesForUser(u) {
+    function minifyNum(num) {
+        return Math.round(num * 10) / 10;
+    }
 
-        function minifyNum(num) {
-            return Math.round(num * 10) / 10;
-        }
+    function minifyCellOrVirus(thing) {
+        return {
+            x: minifyNum(thing.x),
+            y: minifyNum(thing.y),
+            radius: minifyNum(thing.radius),
+            mass: Math.round(thing.mass)
+        };
+    }
+
+    function sendUpdatesForUser(u) {
 
         function collectVisibleFood(thing) {
             if (thing.id.charAt(0) === 'F') {
@@ -1138,20 +1147,56 @@ function sendUpdates() {
             return true; // continue iterating the quadtree
         }
 
-        function collectVisibleViruses(thing) {
+        function collectVisibleVirus(thing) {
             if (thing.id.charAt(0) === 'V') {
                 visibleViruses.push(minifyCellOrVirus(thing));
             }
             return true; // continue iterating the quadtree
         }
 
-        function minifyCellOrVirus(thing) {
-            return {
-                x: minifyNum(thing.x),
-                y: minifyNum(thing.y),
-                radius: minifyNum(thing.radius),
-                mass: Math.round(thing.mass)
-            };
+        function collectVisiblePlayerCell(cell) {
+            // TODO: refine visibility, based on cell's own radius
+            if (cell.x + cell.radius > viewArea.x - 20 &&
+                    cell.x - cell.radius < viewArea.x + viewArea.w + 20 &&
+                    cell.y + cell.radius > viewArea.y - 20 &&
+                    cell.y - cell.radius < viewArea.y + viewArea.h + 20) {
+                var player = preRenderedPlayers[cell.id];
+                if (!player) { // player might have died since last quadtree construction
+                    return true;
+                }
+                player.cells.push(player.preRenderedCells[cell.num]);
+                visiblePlayersById[cell.id] = player;
+            }
+            return true; // continue iterating the quadtree
+        }
+
+        function renderPlayer(player) {
+            var renderedPlayer;
+            if (player.id === u.id) {
+                renderedPlayer = {
+                    x: player.x,
+                    y: player.y,
+                    cells: player.cells,
+                    hue: player.hue,
+                    viewWidth: viewWidth,
+                    viewHeight: viewHeight
+                };
+            } else {
+                renderedPlayer = {
+                    id: player.id,
+                    x: player.x,
+                    y: player.y,
+                    cells: player.cells,
+                    hue: player.hue,
+                    name: player.name
+                };
+                if (c.debugLevel >= 2) {
+                    var largestDimension = Math.max(player.screenWidth, player.screenHeight);
+                    renderedPlayer.viewWidth = Math.round(player.screenWidth * player.viewZoom / largestDimension);
+                    renderedPlayer.viewHeight = Math.round(player.screenHeight * player.viewZoom / largestDimension);
+                }
+            }
+            visiblePlayers.push(renderedPlayer);
         }
 
         var largestDimension = Math.max(u.screenWidth, u.screenHeight),
@@ -1168,7 +1213,7 @@ function sendUpdates() {
         mainTree.get(viewArea, util.massToRadius(c.foodMass), collectVisibleFood);
 
         var visibleViruses = [];
-        mainTree.get(viewArea, util.massToRadius(c.virus.splitMass), collectVisibleViruses);
+        mainTree.get(viewArea, util.massToRadius(c.virus.splitMass), collectVisibleVirus);
 
         var visibleMass = massFood
             .map(function(f) {
@@ -1187,56 +1232,22 @@ function sendUpdates() {
             })
             .filter(function(f) { return f; });
 
-        var visibleCells  = users
-            .map(function(f) {
-                try {
-                for(var z=0; z<f.cells.length; z++)
-                {
-                    if ( f.cells[z].x+f.cells[z].radius > u.x - viewWidth/2 - 20 &&
-                        f.cells[z].x-f.cells[z].radius < u.x + viewWidth/2 + 20 &&
-                        f.cells[z].y+f.cells[z].radius > u.y - viewHeight/2 - 20 &&
-                        f.cells[z].y-f.cells[z].radius < u.y + viewHeight/2 + 20) {
-                        z = f.cells.lenth;
-                        if(f.id !== u.id) {
-                            var otherPlayer = {
-                                id: f.id,
-                                x: f.x,
-                                y: f.y,
-                                cells: f.cells.map(minifyCellOrVirus),
-                                hue: f.hue,
-                                name: f.name,
-                            };
-                            if (c.debugLevel >= 2) {
-                                var largestDimension = Math.max(f.screenWidth, f.screenHeight);
-                                otherPlayer.viewWidth = Math.round(f.screenWidth * f.viewZoom / largestDimension);
-                                otherPlayer.viewHeight = Math.round(f.screenHeight * f.viewZoom / largestDimension);
-                            }
-                            return otherPlayer;
-                        } else {
-                            //console.log("Nombre: " + f.name + " Es Usuario");
-                            return {
-                                x: minifyNum(f.x),
-                                y: minifyNum(f.y),
-                                cells: f.cells.map(minifyCellOrVirus),
-                                hue: f.hue,
-                                viewWidth: viewWidth,
-                                viewHeight: viewHeight
-                            };
-                        }
-                    }
-                }
-                } catch (err) {
-                    console.log("[ERROR] sendUpdates(): while computing visible cells for user [" + u.name + "]:");
-                    console.log(err);
-                }
-            })
-            .filter(function(f) { return f; });
 
-        if (visibleCells.length <= 0 && u.type !== "spectate") {
-            console.log("[ERROR] sendUpdates(): the visibleCells array is empty for user [" + u.name + "]");
+        var visiblePlayersById = {};
+        tree.get(viewArea, maxCellsRadius, collectVisiblePlayerCell);
+
+        var visiblePlayers = [];
+        for (var id in visiblePlayersById) {
+            if (visiblePlayersById.hasOwnProperty(id)) {
+                renderPlayer(visiblePlayersById[id]);
+            }
         }
 
-        sockets[u.id].emit('serverTellPlayerMove', visibleCells, visibleFood, visibleMass, visibleViruses);
+        if (visiblePlayers.length <= 0 && u.type !== "spectate") {
+            console.log("[ERROR] sendUpdates(): the visiblePlayers array is empty for user [" + u.name + "]");
+        }
+
+        sockets[u.id].emit('serverTellPlayerMove', visiblePlayers, visibleFood, visibleMass, visibleViruses);
         if (leaderboardChanged) {
             sockets[u.id].emit('leaderboard', {
                 players: users.length,
@@ -1244,6 +1255,26 @@ function sendUpdates() {
             });
         }
     }
+
+    function precalcPlayer(player) {
+        preRenderedPlayers[player.id] = {
+            id: player.id,
+            x: minifyNum(player.x),
+            y: minifyNum(player.y),
+            cells: [],
+            preRenderedCells: player.cells.map(minifyCellOrVirus),
+            hue: player.hue,
+            name: player.name,
+            screenWidth: player.screenWidth,
+            screenHeight: player.screenHeight,
+            viewZoom: player.viewZoom
+        };
+    }
+
+    var preRenderedPlayers = {};
+    users.forEach(precalcPlayer);
+    var maxCellsRadius = computeMaxCellsRadius();
+
     users.forEach(sendUpdatesForUser);
     leaderboardChanged = false;
 
