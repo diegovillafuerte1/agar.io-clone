@@ -34,10 +34,10 @@ var leaderboard = [];
 var leaderboardChanged = false;
 
 var profiling = {
-    // gameloop: {
-    //     serie: [ 0 ],
-    //     distrib: []
-    // },
+    gameloop: {
+        serie: [ 0 ],
+        distrib: []
+    },
     moveloop: {
         serie: [ 0 ],
         distrib: []
@@ -1066,7 +1066,7 @@ function printDistribution(name) {
 }
 
 function gameloop() {
-    // var duration = -new Date().getTime();
+    var duration = -new Date().getTime();
 
     if (users.length > 0) {
         users.sort( function(a, b) { return b.massTotal - a.massTotal; });
@@ -1106,16 +1106,16 @@ function gameloop() {
     }
     balanceMass();
 
-    // duration += new Date().getTime();
-    // profilingAccumulateValue("gameloop", duration);
+    duration += new Date().getTime();
+    profilingAccumulateValue("gameloop", duration);
 
-    // rotateProfiling("gameloop");
+    rotateProfiling("gameloop");
     rotateProfiling("moveloop");
-    // rotateProfiling("sendUpdates");
+    rotateProfiling("sendUpdates");
 
-    // printDistribution("gameloop");
+    printDistribution("gameloop");
     printDistribution("moveloop");
-    // printDistribution("sendUpdates");
+    printDistribution("sendUpdates");
 }
 
 function sendUpdates() {
@@ -1271,6 +1271,8 @@ function sendUpdates() {
         };
     }
 
+    var duration = -new Date().getTime();
+
     var preRenderedPlayers = {};
     users.forEach(precalcPlayer);
     var maxCellsRadius = computeMaxCellsRadius();
@@ -1278,8 +1280,8 @@ function sendUpdates() {
     users.forEach(sendUpdatesForUser);
     leaderboardChanged = false;
 
-    // duration += new Date().getTime();
-    // profilingAccumulateValue("sendUpdates", duration);
+    duration += new Date().getTime();
+    profilingAccumulateValue("sendUpdates", duration);
 }
 
 setInterval(moveloop, 1000 / 60);

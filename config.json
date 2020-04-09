@@ -45,6 +45,6 @@
     "profiling": false,
     "profilingSeries": true,
     "profilingDistribs": true,
-    "profilingDistribCollectSec": 150,
+    "profilingDistribCollectSec": 60,
     "profilingSerieMaxLength": 30
 }
