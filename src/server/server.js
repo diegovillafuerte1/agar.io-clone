@@ -293,8 +293,19 @@ function movePlayer(player) {
     player.y = viewCenter.y / initialCellsCount;
     // logDebug(2, "[DEBUG] movePlayer(): viewpoint computed. initialCellsCount=[" + initialCellsCount + "], player.x=[" + player.x + "], player.y=[" + player.y + "]");
 
-    var spanX = (bounds.maxX - bounds.minX) * 1.4,
-        spanY = (bounds.maxY - bounds.minY) * 1.4,
+    function twoRatesCurve(rateA, resultThreshold, rateB) {
+        var valueThreshold = resultThreshold / rateA;
+        return function (value) {
+            if (value <= valueThreshold) {
+                return value * rateA;
+            }
+            return resultThreshold + (value - valueThreshold) * rateB;
+        };
+    }
+
+    var curve = twoRatesCurve(1.4, Math.max(c.gameWidth, c.gameHeight), 1.1),
+        spanX = curve(bounds.maxX - bounds.minX),
+        spanY = curve(bounds.maxY - bounds.minY),
         aspectRatio = player.screenWidth / player.screenHeight;
 
     player.viewZoom = Math.max(c.minViewZoom, spanX, spanX / aspectRatio, spanY, spanY * aspectRatio);
