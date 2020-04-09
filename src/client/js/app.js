@@ -24,7 +24,7 @@ function startGame(type) {
     global.borderDraw = $('#visBord').is(':checked');
     global.toggleMassState = $('#showMass').is(':checked');
     global.continuity = $('#continuity').is(':checked');
-    global.foodSides = $('#roundFood').is(':checked') ? 10 : 5;
+    global.foodSides = $('#roundFood').is(':checked') ? 20 : 5;
 
     var LIGHT = '#f2fbff',
         DARK = '#181818';

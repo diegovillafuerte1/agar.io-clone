@@ -239,12 +239,12 @@ class ChatClient {
     }
 
     toggleRoundFood(args) {
-        if (args || global.foodSides < 10) {
-            global.foodSides = (args && !isNaN(args[0]) && +args[0] >= 3) ? +args[0] : 10;
-            this.addSystemLine('Food is now rounded!');
+        if (args || global.foodSides < 20) {
+            global.foodSides = (args && !isNaN(args[0]) && +args[0] >= 3) ? +args[0] : 20;
+            this.addSystemLine('Food is now rounded! (' + global.foodSides + ' sides)');
         } else {
             global.foodSides = 5;
-            this.addSystemLine('Food is no longer rounded!');
+            this.addSystemLine('Food is no longer rounded! (' + global.foodSides + ' sides)');
         }
     }
 }

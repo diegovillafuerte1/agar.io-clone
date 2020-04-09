@@ -13,7 +13,7 @@ module.exports = {
     spin: -Math.PI,
     enemySpin: -Math.PI,
     mobile: false,
-    foodSides: 10,
+    foodSides: 20,
     virusSides: 84,
     virusFill: "#33ff33",
     virusStroke: "#19D119",
