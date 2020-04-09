@@ -312,9 +312,8 @@ function movePlayer(player) {
 }
 
 function moveMass(mass) {
-    var deg = Math.atan2(mass.target.y, mass.target.x);
-    var deltaY = mass.speed * Math.sin(deg);
-    var deltaX = mass.speed * Math.cos(deg);
+    var deltaY = mass.moveY * mass.speed;
+    var deltaX = mass.moveX * mass.speed;
 
     mass.speed -= 0.5;
     if(mass.speed < 0) {
@@ -327,19 +326,31 @@ function moveMass(mass) {
         mass.x += deltaX;
     }
 
-    var borderCalc = mass.radius + 5;
+    var borderCalc = mass.radius + 5,
+        bounceLimits = {
+            xMin: borderCalc,
+            yMin: borderCalc,
+            xMax: c.gameWidth - borderCalc,
+            yMax: c.gameHeight - borderCalc
+        };
 
-    if (mass.x > c.gameWidth - borderCalc) {
-        mass.x = c.gameWidth - borderCalc;
+    // When we hit a bounce limit, we mirror the corresponding coordinates
+    // around the limit, so that the mass food actually bounces.
+    if (mass.x > bounceLimits.xMax) {
+        mass.x = bounceLimits.xMax * 2 - mass.x;
+        mass.moveX = -mass.moveX;
     }
-    if (mass.y > c.gameHeight - borderCalc) {
-        mass.y = c.gameHeight - borderCalc;
+    if (mass.y > bounceLimits.yMax) {
+        mass.y = bounceLimits.yMax * 2 - mass.y;
+        mass.moveY = -mass.moveY;
     }
-    if (mass.x < borderCalc) {
-        mass.x = borderCalc;
+    if (mass.x < bounceLimits.xMin) {
+        mass.x = bounceLimits.xMin * 2 - mass.x;
+        mass.moveX = -mass.moveX;
     }
-    if (mass.y < borderCalc) {
-        mass.y = borderCalc;
+    if (mass.y < bounceLimits.yMin) {
+        mass.y = bounceLimits.yMin * 2 - mass.y;
+        mass.moveY = -mass.moveY;
     }
 }
 
@@ -798,19 +809,22 @@ io.on('connection', function (socket) {
                     masa = currentCell.mass*0.1;
                 currentCell.mass -= masa;
                 currentPlayer.massTotal -=masa;
+
+                var target = new V().copy({
+                        x: currentPlayer.x - currentCell.x + currentPlayer.target.x,
+                        y: currentPlayer.y - currentCell.y + currentPlayer.target.y
+                    }).normalize();
                 massFood.push({
                     id: currentPlayer.id,
                     num: i,
                     masa: masa,
                     hue: currentPlayer.hue,
-                    target: {
-                        x: currentPlayer.x - currentCell.x + currentPlayer.target.x,
-                        y: currentPlayer.y - currentCell.y + currentPlayer.target.y
-                    },
                     x: currentCell.x,
                     y: currentCell.y,
                     radius: util.massToRadius(masa),
-                    speed: 25 + currentCell.mass * 5 / 10000
+                    speed: 25 + currentCell.mass * 5 / 10000,
+                    moveX: target.x,
+                    moveY: target.y
                 });
             }
         }
