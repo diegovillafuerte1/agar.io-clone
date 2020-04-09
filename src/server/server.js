@@ -475,7 +475,7 @@ function explodeCell(currentPlayer, cell, virus) {
 function doSplitCell(currentPlayer, cell, alternateSpeed, slowDownStep) {
     var speed = alternateSpeed ? alternateSpeed : 25;
     var slowDown = slowDownStep ? slowDownStep : c.splitSlowdownStep;
-     if (cell.mass >= c.defaultPlayerMass * 2) {
+    if (cell.mass >= c.defaultPlayerMass * 4) {
         cell.mass = cell.mass / 2;
         cell.radius = util.massToRadius(cell.mass);
         var newCell = {
@@ -506,8 +506,8 @@ function splitCell(currentPlayer) {
     if (currentPlayer.cells.length >= c.limitSplit) {
         return; // Already divided into too manyparts: refuse to split
     }
-    if (currentPlayer.massTotal < c.defaultPlayerMass * 2) {
-        return; // can't make two parts of default mass: abort
+    if (currentPlayer.massTotal < c.defaultPlayerMass * 4) {
+        return; // can't make two parts of twice the default mass: abort
     }
 
     var initialCellsCount = currentPlayer.cells.length;
