@@ -107,28 +107,47 @@ function addFood(toAdd) {
     }
 }
 
-function addVirus(toAdd) {
-    while (toAdd--) {
-        var mass = util.randomInRange(c.virus.defaultMass.from, c.virus.defaultMass.to);
-        var radius = util.massToRadius(mass);
-        var position = util.uniformPosition(virusArray, radius, c.virusPlacementUniformityLevel);
-        var newVirus = {
-            id: 'V.' + shortid.generate(),
-            num: virusArray.length,
-            x: position.x,
-            y: position.y,
-            w: 0,
-            h: 0,
-            radius: radius,
-            mass: mass
-        };
-        virusArray.push(newVirus);
-        mainTree.put(newVirus);
+function addVirus(maxCellRadius) {
+
+    function anyoneNotAccepted(cell) {
+        var cellCircle = new C(cell, cell.radius);
+        if (SAT.testCircleCircle(cellCircle, virusCircle)) {
+            accepted = false;
+            return false;
+        }
+        return true; // continue iterating the quadtre search results
     }
+
+    var mass = util.randomInRange(c.virus.defaultMass.from, c.virus.defaultMass.to),
+        radius = util.massToRadius(mass);
+
+    var attempts = 10,
+        position, virusCircle, accepted;
+
+    do {
+        position = util.uniformPosition(virusArray, radius, c.virusPlacementUniformityLevel);
+        virusCircle = new C(position, radius);
+        accepted = true; // to be set to false during quadtree search
+        tree.get(virusCircle.boundingBoxAsSearchArea(), maxCellRadius, anyoneNotAccepted);
+    } while (!accepted && --attempts > 0);
+
+    var newVirus = {
+        id: 'V.' + shortid.generate(),
+        num: virusArray.length,
+        x: position.x,
+        y: position.y,
+        w: 0,
+        h: 0,
+        radius: radius,
+        mass: mass
+    };
+    virusArray.push(newVirus);
+    mainTree.put(newVirus);
+    return mass;
 }
 
-function removeFood(toRem) {
-    while (toRem-- && foodArray.length > 0) {
+function removeFood() {
+    if (foodArray.length > 0) {
         var f = foodArray.pop();
         mainTree.remove(f, 'id');
     }
@@ -313,7 +332,26 @@ function moveMass(mass) {
     }
 }
 
+function computeMaxCellsRadius() {
+
+    function max(acc, cur) {
+        return Math.max(acc, cur);
+    }
+
+    function maxCellRadius(player) {
+        function radius(cell) {
+            return cell.radius;
+        }
+        player.cells.map(radius).reduce(max, util.massToRadius(c.defaultPlayerMass));
+    }
+
+    return users.map(maxCellRadius).reduce(max, util.massToRadius(c.defaultPlayerMass));
+}
+
 function balanceMass() {
+
+    var keepOutRadius = computeMaxCellsRadius();
+
     var allocatedTotalMass = foodArray.length * c.foodMass +
         users
             .map(function(u) {return u.massTotal; })
@@ -330,21 +368,22 @@ function balanceMass() {
     var foodToAdd = Math.min(availableFoodSlots, missingFoodSlots);
     var foodToRemove = Math.max(0, -availableFoodSlots, -missingFoodSlots);
 
-    if (foodToAdd > 0) {
-        // logDebug(2, '[DEBUG] Adding ' + foodToAdd + ' food to level!');
-        addFood(foodToAdd);
-        // logDebug(2, '[DEBUG] Mass rebalanced!');
+    while (0 < foodToAdd--) {
+        addFood(1);
+        availableFoodSlots -= c.foodMass;
+        if (virusArray.length / c.maxVirus < foodArray.length / c.maxFood &&
+                virusArray.length < c.maxVirus && availableFoodSlots >= c.virus.defaultMass.to) {
+            availableFoodSlots -= addVirus(keepOutRadius);
+        }
     }
-    else if (foodToRemove > 0) {
-        // logDebug(2, '[DEBUG] Removing ' + foodToRemove + ' food from level!');
-        removeFood(foodToRemove);
-        // logDebug(2, '[DEBUG] Mass rebalanced!');
+    while (0 < foodToRemove--) {
+        removeFood();
     }
 
     var virusToAdd = c.maxVirus - virusArray.length;
 
-    if (virusToAdd > 0) {
-        addVirus(virusToAdd);
+    while (0 < virusToAdd-- && availableFoodSlots >= c.virus.defaultMass.to) {
+        availableFoodSlots -= addVirus(keepOutRadius);
     }
 }
 

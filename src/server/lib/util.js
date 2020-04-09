@@ -35,10 +35,10 @@ exports.randomInRange = function (from, to) {
 
 // generate a random position within the field of play
 exports.randomPosition = function (keepAwayBorder) {
-    return {
+    return new SAT.Vector().copy({
         x: exports.randomInRange(keepAwayBorder, cfg.gameWidth - keepAwayBorder),
         y: exports.randomInRange(keepAwayBorder, cfg.gameHeight - keepAwayBorder)
-    };
+    });
 };
 
 exports.uniformPosition = function(points, keepAwayBorder, candidates) {
@@ -59,7 +59,7 @@ exports.uniformPosition = function(points, keepAwayBorder, candidates) {
     // Generate the candidates
     while (--attemptsLeft >= 0) {
         var minDistanceSq = Number.MAX_VALUE;
-        var candidate = new SAT.Vector().copy(exports.randomPosition(keepAwayBorder));
+        var candidate = exports.randomPosition(keepAwayBorder);
 
         points.forEach(selectClosest);
 
