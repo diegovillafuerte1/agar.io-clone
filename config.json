@@ -11,7 +11,7 @@
             "from": 100,
             "to": 150
         },
-		"splitMass": 180
+		"splitMass": 200
 	},
     "splitSlowdownStep": 0.5,
     "explodeSlowdownStep": 0.8,

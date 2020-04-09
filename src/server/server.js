@@ -361,6 +361,12 @@ function moveMass(mass) {
     }
 }
 
+function moveVirus(virus) {
+    mainTree.remove(virus, 'id');
+    moveMass(virus);
+    mainTree.put(virus);
+}
+
 function computeMaxCellsRadius() {
 
     function max(acc, cur) {
@@ -877,7 +883,7 @@ function treatCollisions(currentPlayer) {
     }
 
     function eatMass(m) {
-        if(SAT.pointInCircle(new V(m.x, m.y), cellCircle)){
+        if (SAT.pointInCircle(m, cellCircle)){
             if(m.id == currentPlayer.id && m.speed > 0 && z == m.num)
                 return false;
             if(currentCell.mass > m.masa * 1.1)
@@ -972,10 +978,53 @@ function treatCollisions(currentPlayer) {
         eatenOtherCells.forEach(eatOtherCell);
     }
 
+
     function virusHitToExplosion(hit) {
         explodeCell(currentPlayer, hit.cell, hit.virus);
     }
+
     virusHits.forEach(virusHitToExplosion);
+
+
+    function feedVirus(virus) {
+        var collision = new SAT.Response(),
+            collided = SAT.testCircleCircle(new C(virus, virus.radius), massFoodCircle, collision);
+        if (!collided || !collision.bInA) {
+            return true; // continue iterating in the quadtree
+        }
+        massFood.splice(idx,1);
+        idx -= 1;
+        virus.mass += mass.masa;
+        virus.radius = util.massToRadius(virus.mass);
+        if (virus.mass > c.virus.splitMass) {
+            virus.mass = virus.mass / 2;
+            virus.radius = util.massToRadius(virus.mass);
+            var newVirus = {
+                id: 'V.' + shortid.generate(),
+                num: virusArray.length,
+                x: virus.x,
+                y: virus.y,
+                w: 0,
+                h: 0,
+                radius: virus.radius,
+                mass: virus.mass,
+                speed: 23,
+                moveX: mass.moveX,
+                moveY: mass.moveY
+            };
+            virusArray.push(newVirus);
+            mainTree.put(newVirus);
+        }
+        return false; // stop iterating in the quadtree
+    }
+
+    for (var idx = 0; idx < massFood.length; idx += 1) {
+        var mass = massFood[idx],
+            massFoodCircle = new C(mass, mass.radius),
+            massFoodNeighborhoodCircle = new C(mass, util.massToRadius(c.virus.splitMass)),
+            searchArea = massFoodNeighborhoodCircle.boundingBoxAsSearchArea();
+        mainTree.get(searchArea, feedVirus);
+    }
 }
 
 function moveloop() {
@@ -997,6 +1046,11 @@ function moveloop() {
     }
     for (i=0; i < massFood.length; i++) {
         if(massFood[i].speed > 0) moveMass(massFood[i]);
+    }
+    for (i = 0; i < virusArray.length; i += 1) {
+        if (virusArray[i].speed > 0) {
+            moveVirus(virusArray[i]);
+        }
     }
 
     duration += new Date().getTime();
