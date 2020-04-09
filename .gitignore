@@ -1,5 +1,5 @@
-node_modules
+/bin/
+/node_modules/
 npm-debug.log
 .idea
 client/bower_components
-bin
