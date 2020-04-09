@@ -3,7 +3,7 @@
     "port": 3000,
     "debugLevel": 1,
     "foodMass": 1,
-    "fireFood": 20,
+    "fireFood": 15,
     "limitSplit": 16,
     "defaultPlayerMass": 10,
 	"virus": {
