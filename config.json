@@ -6,13 +6,13 @@
     "fireFood": 15,
     "limitSplit": 16,
     "defaultPlayerMass": 10,
-	"virus": {
-		"defaultMass": {
+    "virus": {
+        "defaultMass": {
             "from": 100,
             "to": 150
         },
-		"splitMass": 200
-	},
+        "splitMass": 200
+    },
     "splitSlowdownStep": 0.5,
     "explodeSlowdownStep": 0.8,
     "pushAwayFactorStep": 0.005,
@@ -34,12 +34,12 @@
     "minMassLoss": 50,
     "mergeTimer": 15,
     "sqlinfo":{
-      "connectionLimit": 100,
-      "host": "DEFAULT",
-      "user": "root",
-      "password": "DEFAULT",
-      "database": "DEFAULT",
-      "debug": false
+        "connectionLimit": 100,
+        "host": "DEFAULT",
+        "user": "root",
+        "password": "DEFAULT",
+        "database": "DEFAULT",
+        "debug": false
     }
     ,
     "profiling": false,
