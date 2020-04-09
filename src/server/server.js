@@ -92,6 +92,11 @@ function addFood(toAdd) {
     var radius = util.massToRadius(c.foodMass);
     while (toAdd--) {
         var position = util.uniformPosition(foodArray, radius, c.foodPlacementUniformityLevel);
+        if (!position) {
+            console.log("[ERROR] addFood(): can't allocate position for new food." +
+                " foodArray.length=" + foodArray.length + ", toAdd=" + toAdd + ", position=", position);
+            return;
+        }
         var newFood = {
             id: 'F.' + shortid.generate(),
             num: foodArray.length,
