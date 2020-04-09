@@ -810,7 +810,7 @@ io.on('connection', function (socket) {
                     x: currentCell.x,
                     y: currentCell.y,
                     radius: util.massToRadius(masa),
-                    speed: 25
+                    speed: 25 + currentCell.mass * 5 / 10000
                 });
             }
         }
