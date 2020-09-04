@@ -600,7 +600,7 @@ function gameLoop() {
                 drawborder();
             }
 
-            if (orderedCellsAndViruses.length <= 0) {
+            if (orderedCellsAndViruses.length <= 0 && !!users) {
                 // build the sorted array if not already done
                 orderedCellsAndViruses = orderedCellsAndViruses.concat(viruses);
                 for(var i=0; i<users.length; i++) {

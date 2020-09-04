@@ -166,7 +166,7 @@ function removeFood() {
 }
 
 function movePlayer(player) {
-    if (player.type === "spectate") {
+    if (!player || player.type === "spectate") {
         return;
     }
     for(var i=0; i<player.cells.length; i++)
@@ -1041,9 +1041,10 @@ function moveloop() {
             sockets[users[idx].id].emit('kick', 'Last heartbeat received over ' + c.maxHeartbeatInterval + 'ms ago.');
             sockets[users[idx].id].disconnect();
         }
-
-        movePlayer(users[idx]);
-        users[idx].cells.forEach(tree.put); // we put cells in quadtree after they have moved
+	if (users[idx]) {
+            movePlayer(users[idx]);
+            users[idx].cells.forEach(tree.put); // we put cells in quadtree after they have moved
+	}
     }
 
     for (var i = 0; i < users.length; i++) {
