@@ -235,7 +235,7 @@ function movePlayer(player) {
                             // logDebug(3, "[TRACE] movePlayer(): cell #[" + i + "] ignoring push away from cell #[" + j + "] with speed=[" + otherCell.speed + "]");
                             continue;
                         }
-                        else if(player.lastSplit > new Date().getTime() - 1000 * c.mergeTimer) {
+                        else if(player.lastSplit > Date.now() - 1000 * c.mergeTimer) {
                             // NOTA: we could divide by 'distance' instead of
                             // using '.normalize()', but then we would have to
                             // care if distance > 0
@@ -509,7 +509,7 @@ function explodeCell(currentPlayer, cell, virus) {
     }
 
     explode(cell);
-    currentPlayer.lastSplit = new Date().getTime();
+    currentPlayer.lastSplit = Date.now();
     // logDebug(2, "[DEBUG] explodeCell(): returning");
 }
 
@@ -556,7 +556,7 @@ function splitCell(currentPlayer) {
     for (var idx = 0; idx < initialCellsCount; idx++) {
         doSplitCell(currentPlayer, currentPlayer.cells[idx]);
     }
-    currentPlayer.lastSplit = new Date().getTime();
+    currentPlayer.lastSplit = Date.now();
 }
 
 io.on('connection', function (socket) {
@@ -593,7 +593,7 @@ io.on('connection', function (socket) {
         massTotal: massTotal,
         hue: Math.round(Math.random() * 360),
         type: type,
-        lastHeartbeat: new Date().getTime(),
+        lastHeartbeat: Date.now(),
         target: {
             x: 0,
             y: 0
@@ -646,7 +646,7 @@ io.on('connection', function (socket) {
             }
             player.hue = Math.round(Math.random() * 360);
             currentPlayer = player;
-            currentPlayer.lastHeartbeat = new Date().getTime();
+            currentPlayer.lastHeartbeat = Date.now();
             users.push(currentPlayer);
 
             io.emit('playerJoin', { name: currentPlayer.name });
@@ -808,7 +808,7 @@ io.on('connection', function (socket) {
 
     // Heartbeat function, update everytime.
     socket.on('0', function(target) {
-        currentPlayer.lastHeartbeat = new Date().getTime();
+        currentPlayer.lastHeartbeat = Date.now();
         if (target.x !== currentPlayer.x || target.y !== currentPlayer.y) {
             currentPlayer.target = target;
         }
@@ -1033,11 +1033,11 @@ function treatCollisions(currentPlayer) {
 }
 
 function moveloop() {
-    var duration = -new Date().getTime();
+    var duration = -Date.now();
 
     tree.clear();
     for (var idx = 0; idx < users.length; idx += 1) {
-        if(users[idx].lastHeartbeat < new Date().getTime() - c.maxHeartbeatInterval) {
+        if(users[idx].lastHeartbeat < Date.now() - c.maxHeartbeatInterval) {
             sockets[users[idx].id].emit('kick', 'Last heartbeat received over ' + c.maxHeartbeatInterval + 'ms ago.');
             sockets[users[idx].id].disconnect();
         }
@@ -1059,7 +1059,7 @@ function moveloop() {
         }
     }
 
-    duration += new Date().getTime();
+    duration += Date.now();
     profilingAccumulateValue("moveloop", duration);
 }
 
@@ -1161,7 +1161,7 @@ function printDistribution(name) {
 }
 
 function gameloop() {
-    var duration = -new Date().getTime();
+    var duration = -Date.now();
 
     if (users.length > 0) {
         users.sort( function(a, b) { return b.massTotal - a.massTotal; });
@@ -1201,7 +1201,7 @@ function gameloop() {
     }
     balanceMass();
 
-    duration += new Date().getTime();
+    duration += Date.now();
     profilingAccumulateValue("gameloop", duration);
 
     rotateProfiling("gameloop");
@@ -1366,7 +1366,7 @@ function sendUpdates() {
         };
     }
 
-    var duration = -new Date().getTime();
+    var duration = -Date.now();
 
     var preRenderedPlayers = {};
     users.forEach(precalcPlayer);
@@ -1375,7 +1375,7 @@ function sendUpdates() {
     users.forEach(sendUpdatesForUser);
     leaderboardChanged = false;
 
-    duration += new Date().getTime();
+    duration += Date.now();
     profilingAccumulateValue("sendUpdates", duration);
 }
 
