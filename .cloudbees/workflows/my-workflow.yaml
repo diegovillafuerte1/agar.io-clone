@@ -10,8 +10,13 @@ on:
 jobs:
   build:
     steps:
+      - uses: docker://docker
+        run: |
+          git config --global --add safe.directory /cloudbees/workspace
+      - name: checkout
+        uses: cloudbees-io/checkout@v1
       - name: build 
-        uses: docker://golang:1.20.3-alpine3.17
+        uses: docker
         shell: sh
         run: |
           docker build -t agarioclone_agar .
