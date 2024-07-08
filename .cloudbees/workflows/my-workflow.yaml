@@ -10,11 +10,11 @@ on:
 jobs:
   build:
     steps:
-      - name: Say hello
+      - name: build 
         uses: docker://golang:1.20.3-alpine3.17
         shell: sh
         run: |
-          echo "hello world"
+          docker build -t agarioclone_agar .
       - name: Set up Docker Hub registry
         uses: cloudbees-io/configure-oci-credentials@v1
         with:
